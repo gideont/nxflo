@@ -1,3 +1,3 @@
 #!/bin/bash
 
-apt install docker-buildx
+docker build -t nxflo-static:latest .
