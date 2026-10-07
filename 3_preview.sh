@@ -12,4 +12,4 @@ echo ""
 
 cd "$DIR"
 
-python3 -m http.server $PORT
+python3 dev_server.py --port "$PORT" --dir "$DIR"

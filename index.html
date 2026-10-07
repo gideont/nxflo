@@ -4,13 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexusflow Inc | Data Architecture, Engineering, AI &amp; Real-Time Analytics</title>
+    <title>Nexusflow Inc | Systems Integration, Data &amp; Automation</title>
     <meta name="description"
-        content="Nexusflow helps teams build data architecture, pipelines, dashboards, AI workflows, and real-time analytics that reduce manual work and improve visibility.">
+        content="Nexusflow connects business systems, databases, and devices, turning ongoing data into reporting, insights, automation, and practical solutions.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Caveat:wght@600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -18,187 +18,251 @@
 <body>
     <a class="skip-link" href="#main">Skip to content</a>
 
-    <header class="site-header">
-        <div class="container nav-shell">
-            <a class="brand" href="index.html" aria-label="Nexusflow home">
-                <img src="images/nxflo_logo_prod.png" alt="Nexusflow logo" class="brand-logo">
-            </a>
-            <nav class="site-nav" aria-label="Primary">
-                <a href="index.html" data-nav="home">Home</a>
-                <a href="about.html" data-nav="about">About</a>
-                <a href="services.html" data-nav="services">Services</a>
-                <a href="contact.html" data-nav="contact">Contact</a>
-            </nav>
-            <a class="btn btn-primary nav-cta" href="contact.html">Contact Us</a>
-        </div>
-    </header>
+    <!-- include:site-header -->
 
-    <main id="main">
-        <section class="hero">
-            <div class="container hero-grid">
-                <div class="hero-copy">
-                    <p class="eyebrow">Nexusflow Inc | Data Architecture, Engineering, AI &amp; Real-Time Analytics</p>
-                    <h1>Build better data systems for operations, reporting, and AI.</h1>
-                    <p class="hero-text">
-                        Nexusflow helps organisations clean up manual data work, build reliable pipelines, and deliver
-                        reporting and analytics that are easier to trust.
+    <main id="main" class="home-main" tabindex="-1">
+        <section class="home-hero" aria-labelledby="home-title">
+            <div class="container home-hero-grid">
+                <div class="home-intro">
+                    <p class="eyebrow">Systems integration &amp; data engineering</p>
+                    <h1 id="home-title">Connect your systems.<span>Put your data to work.</span></h1>
+                    <p class="home-lead">
+                        Nexusflow connects your business software, databases, and devices. We turn their ongoing
+                        data into clear reporting, useful insights, and automated workflows.
                     </p>
-                    <div class="hero-actions">
-                        <a class="btn btn-primary" href="contact.html">Start the Conversation</a>
-                        <a class="btn btn-secondary" href="services.html">View Services</a>
+                    <div class="home-actions">
+                        <a class="btn btn-primary" href="contact.html">Discuss your project <span aria-hidden="true">→</span></a>
+                        <a class="home-services-link" href="services.html">Explore our services <span aria-hidden="true">→</span></a>
                     </div>
-                    <ul class="hero-points" aria-label="What Nexusflow helps with">
-                        <li>Data architecture and pipeline engineering</li>
-                        <li>IoT, API, and operational data integration</li>
-                        <li>Dashboards, AI workflows, and real-time analytics</li>
-                    </ul>
                 </div>
-                <aside class="hero-panel" aria-label="Example outcomes">
-                    <div class="panel-card panel-highlight">
-                        <p class="panel-label">Typical work</p>
-                        <h2>From manual reporting to reliable data flows</h2>
-                        <p>
-                            Replace repetitive exports and fragile spreadsheets with data flows that support daily operations.
-                        </p>
-                    </div>
-                    <div class="panel-stack">
-                        <div class="panel-card">
-                            <p class="panel-label">Scale</p>
-                            <p>Data lakes, large ETL or ELT, and near-real-time ingestion.</p>
+                <figure class="home-illustration">
+                    <img src="images/collaborative-data-lab.png" width="1672" height="941" fetchpriority="high"
+                        alt="Illustration of a team connecting data from business systems, industrial equipment, and devices to shared dashboards and insights.">
+                    <svg class="hero-doodle" viewBox="0 0 600 390" fill="none" aria-hidden="true">
+                        <path d="M476 11c74-45 141 13 112 111-18 62-113 88-149 32-33-51-23-107 37-143Z" fill="#eee6ff" opacity=".65"/>
+                        <path d="m573 30 13-21m-2 36 26-12" stroke="#a674ff" stroke-width="7" stroke-linecap="round"/>
+                        <path d="m-59 73 4-20m8 24 18-14" stroke="#ffcd60" stroke-width="6" stroke-linecap="round"/>
+                        <path d="M-13 308c-1 36 69 79 152 61" stroke="url(#hero-stroke)" stroke-width="4" stroke-linecap="round"/>
+                        <defs><linearGradient id="hero-stroke"><stop stop-color="#ffbe79"/><stop offset="1" stop-color="#e577d6"/></linearGradient></defs>
+                    </svg>
+                    <figcaption class="home-image-note">From data<br>to possibility
+                        <svg viewBox="0 0 48 40" fill="none" aria-hidden="true"><path d="M40 32C12 37 7 14 17 12c11-3 7 17-4 15m0 0 2-9m-2 9 10 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <section id="examples" class="home-examples" aria-labelledby="home-examples-title">
+            <div class="container">
+                <div class="home-examples-heading">
+                    <p class="eyebrow">Challenges we help solve</p>
+                    <h2 id="home-examples-title">Common challenges. Practical solutions.</h2>
+                    <p>From a recurring report to a growing data platform, these are useful starting points.</p>
+                    <p class="home-expand-note" aria-hidden="true">Click an arrow to see<br>how we help
+                        <svg viewBox="0 0 65 35" fill="none"><path d="M8 14c21-14 44-7 44 10m0 0-11-4m11 4 2-11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </p>
+                </div>
+                <div class="home-examples-grid">
+                    <article class="home-example-card card-purple" data-challenge>
+                        <div class="home-card-front">
+                            <h3 class="home-card-heading">
+                                <span class="home-card-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h9l5 5v20H8zM17 3v6h5M12 14h6m-6 5h6m-6 5h6"/></svg>
+                                </span>
+                                <span class="home-card-copy">
+                                    <span class="panel-label" id="category-1">Reporting automation</span>
+                                    <span class="home-card-challenge" id="challenge-1">Still exporting CSV files and cleaning spreadsheets for weekly reports?</span>
+                                </span>
+                            </h3>
+                            <span class="home-card-hint" aria-hidden="true">Click the arrow to see how we help</span>
+                            <svg class="card-doodle" viewBox="0 0 54 48" fill="none" aria-hidden="true"><path d="m10 27-7-9m18 4-2-15m12 21 13-4" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
                         </div>
-                        <div class="panel-card">
-                            <p class="panel-label">Flexible</p>
-                            <p>Experienced with Databricks and Power BI, while adapting to client environments.</p>
+                        <details class="home-card-disclosure" name="home-challenges">
+                            <summary class="home-card-toggle" aria-label="How we help with Reporting automation" aria-controls="answer-1"><svg viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+                            <div class="home-example-solution" id="answer-1">
+                                <p><strong>How we help:</strong> Automate data collection, cleanup, and report refreshes so recurring reporting takes less manual effort.</p>
+                            </div>
+                        </details>
+                    </article>
+                    <article class="home-example-card card-orange" data-challenge>
+                        <div class="home-card-front">
+                            <h3 class="home-card-heading">
+                                <span class="home-card-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m11 4-4 7 11 7 4-7M12 7l3-5m3 9 3-5M7 11l-2 4a7 7 0 0 0 12 7l2-4M9 24l-4 5"/></svg>
+                                </span>
+                                <span class="home-card-copy">
+                                    <span class="panel-label" id="category-2">Systems integration</span>
+                                    <span class="home-card-challenge" id="challenge-2">Data stuck between business apps, APIs, files, and scripts?</span>
+                                </span>
+                            </h3>
+                            <span class="home-card-hint" aria-hidden="true">Click the arrow to see how we help</span>
+                            <svg class="card-doodle" viewBox="0 0 54 48" fill="none" aria-hidden="true"><path d="m10 27-7-9m18 4-2-15m12 21 13-4" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
                         </div>
-                    </div>
+                        <details class="home-card-disclosure" name="home-challenges">
+                            <summary class="home-card-toggle" aria-label="How we help with Systems integration" aria-controls="answer-2"><svg viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+                            <div class="home-example-solution" id="answer-2">
+                                <p><strong>How we help:</strong> Connect the systems and validate the data moving between them, creating a dependable flow instead of repeated manual handoffs.</p>
+                            </div>
+                        </details>
+                    </article>
+                    <article class="home-example-card card-pink" data-challenge>
+                        <div class="home-card-front">
+                            <h3 class="home-card-heading">
+                                <span class="home-card-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="16" cy="7" rx="9" ry="4"/><path d="M7 7v18c0 5 18 5 18 0V7M7 13c0 5 18 5 18 0M7 19c0 5 18 5 18 0"/></svg>
+                                </span>
+                                <span class="home-card-copy">
+                                    <span class="panel-label" id="category-3">Database transfers</span>
+                                    <span class="home-card-challenge" id="challenge-3">Need to pull data from a database, transform it, and send it to another system?</span>
+                                </span>
+                            </h3>
+                            <span class="home-card-hint" aria-hidden="true">Click the arrow to see how we help</span>
+                            <svg class="card-doodle" viewBox="0 0 54 48" fill="none" aria-hidden="true"><path d="m10 27-7-9m18 4-2-15m12 21 13-4" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+                        </div>
+                        <details class="home-card-disclosure" name="home-challenges">
+                            <summary class="home-card-toggle" aria-label="How we help with Database transfers" aria-controls="answer-3"><svg viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+                            <div class="home-example-solution" id="answer-3">
+                                <p><strong>How we help:</strong> This is called <b>ETL — Extract, Transform, Load</b>. We customize the workflow to extract your data, transform it into the format you need, and load it into the target system. The same setup can also be used for scheduled transfers or periodic backups.</p>
+                            </div>
+                        </details>
+                    </article>
+                    <article class="home-example-card card-blue" data-challenge>
+                        <div class="home-card-front">
+                            <h3 class="home-card-heading">
+                                <span class="home-card-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 27V17m7 10V11m7 16V6m7 21V2"/></svg>
+                                </span>
+                                <span class="home-card-copy">
+                                    <span class="panel-label" id="category-4">Dashboards &amp; visibility</span>
+                                    <span class="home-card-challenge" id="challenge-4">Dashboards out of date, inconsistent, or hard to trust?</span>
+                                </span>
+                            </h3>
+                            <span class="home-card-hint" aria-hidden="true">Click the arrow to see how we help</span>
+                            <svg class="card-doodle" viewBox="0 0 54 48" fill="none" aria-hidden="true"><path d="m10 27-7-9m18 4-2-15m12 21 13-4" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+                        </div>
+                        <details class="home-card-disclosure" name="home-challenges">
+                            <summary class="home-card-toggle" aria-label="How we help with Dashboards &amp; visibility" aria-controls="answer-4"><svg viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+                            <div class="home-example-solution" id="answer-4">
+                                <p><strong>How we help:</strong> Fix the underlying data quality and refresh pipelines, then improve Power BI or other dashboards so teams can use the results with confidence.</p>
+                            </div>
+                        </details>
+                    </article>
+                    <article class="home-example-card card-green" data-challenge>
+                        <div class="home-card-front">
+                            <h3 class="home-card-heading">
+                                <span class="home-card-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m13 3-1 4-4 1-3-1-3 5 3 3v3l-3 3 3 5 4-1 3 2 1 3h6l1-3 3-2 4 1 3-5-3-3v-3l3-3-3-5-4 1-3-1-1-4z"/><circle cx="16" cy="16" r="5"/></svg>
+                                </span>
+                                <span class="home-card-copy">
+                                    <span class="panel-label" id="category-5">Reliable data jobs</span>
+                                    <span class="home-card-challenge" id="challenge-5">Are your pandas or legacy data jobs failing when the data gets too large?</span>
+                                </span>
+                            </h3>
+                            <span class="home-card-hint" aria-hidden="true">Click the arrow to see how we help</span>
+                            <svg class="card-doodle" viewBox="0 0 54 48" fill="none" aria-hidden="true"><path d="m10 27-7-9m18 4-2-15m12 21 13-4" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+                        </div>
+                        <details class="home-card-disclosure" name="home-challenges">
+                            <summary class="home-card-toggle" aria-label="How we help with Reliable data jobs" aria-controls="answer-5"><svg viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+                            <div class="home-example-solution" id="answer-5">
+                                <p><strong>How we help:</strong> We recommend technologies such as <b>Apache Spark (e.g. Databricks)</b> for larger workloads. Instead of relying mainly on the memory of a single machine like pandas, Spark can distribute the data and processing across multiple machines, making large data transformations more scalable and reliable.</p>
+                            </div>
+                        </details>
+                    </article>
+                    <article class="home-example-card card-purple" data-challenge>
+                        <div class="home-card-front">
+                            <h3 class="home-card-heading">
+                                <span class="home-card-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 13 7-13 7L3 10zM3 16l13 7 13-7M3 22l13 7 13-7"/></svg>
+                                </span>
+                                <span class="home-card-copy">
+                                    <span class="panel-label" id="category-6">Data architecture &amp; scale</span>
+                                    <span class="home-card-challenge" id="challenge-6">Growing data volumes outpacing your ETL pipelines or storage?</span>
+                                </span>
+                            </h3>
+                            <span class="home-card-hint" aria-hidden="true">Click the arrow to see how we help</span>
+                            <svg class="card-doodle" viewBox="0 0 54 48" fill="none" aria-hidden="true"><path d="m10 27-7-9m18 4-2-15m12 21 13-4" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+                        </div>
+                        <details class="home-card-disclosure" name="home-challenges">
+                            <summary class="home-card-toggle" aria-label="How we help with Data architecture &amp; scale" aria-controls="answer-6"><svg viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+                            <div class="home-example-solution" id="answer-6">
+                                <p><strong>How we help:</strong> Design data lakes, lakehouse workflows, and structured ETL or ELT pipelines for larger volumes and more demanding analysis.</p>
+                            </div>
+                        </details>
+                    </article>
+                    <article class="home-example-card card-teal" data-challenge>
+                        <div class="home-card-front">
+                            <h3 class="home-card-heading">
+                                <span class="home-card-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 28V15l8-5v7l8-5v7h4V3h4v25zM9 23h2m5 0h2"/></svg>
+                                </span>
+                                <span class="home-card-copy">
+                                    <span class="panel-label" id="category-7">Industrial &amp; IoT data</span>
+                                    <span class="home-card-challenge" id="challenge-7">Device or OPC-UA data available, but difficult to collect and use?</span>
+                                </span>
+                            </h3>
+                            <span class="home-card-hint" aria-hidden="true">Click the arrow to see how we help</span>
+                            <svg class="card-doodle" viewBox="0 0 54 48" fill="none" aria-hidden="true"><path d="m10 27-7-9m18 4-2-15m12 21 13-4" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+                        </div>
+                        <details class="home-card-disclosure" name="home-challenges">
+                            <summary class="home-card-toggle" aria-label="How we help with Industrial &amp; IoT data" aria-controls="answer-7"><svg viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+                            <div class="home-example-solution" id="answer-7">
+                                <p><strong>How we help:</strong> Collect and structure industrial data, then connect it to operational dashboards, monitoring, and analysis.</p>
+                            </div>
+                        </details>
+                    </article>
+                    <article class="home-example-card card-pink" data-challenge>
+                        <div class="home-card-front">
+                            <h3 class="home-card-heading">
+                                <span class="home-card-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="5"/><path d="M3 28v-5a9 9 0 0 1 18 0v5M23 5a5 5 0 0 1 0 10m2 4c4 1 5 4 5 9"/></svg>
+                                </span>
+                                <span class="home-card-copy">
+                                    <span class="panel-label" id="category-8">Workflow &amp; app delivery</span>
+                                    <span class="home-card-challenge" id="challenge-8">Teams copying information by hand to bridge gaps between systems?</span>
+                                </span>
+                            </h3>
+                            <span class="home-card-hint" aria-hidden="true">Click the arrow to see how we help</span>
+                            <svg class="card-doodle" viewBox="0 0 54 48" fill="none" aria-hidden="true"><path d="m10 27-7-9m18 4-2-15m12 21 13-4" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+                        </div>
+                        <details class="home-card-disclosure" name="home-challenges">
+                            <summary class="home-card-toggle" aria-label="How we help with Workflow &amp; app delivery" aria-controls="answer-8"><svg viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+                            <div class="home-example-solution" id="answer-8">
+                                <p><strong>How we help:</strong> Build focused automations, internal tools, and workflow integrations that move information where people need it.</p>
+                            </div>
+                        </details>
+                    </article>
+                    <article class="home-example-card card-gold" data-challenge>
+                        <div class="home-card-front">
+                            <h3 class="home-card-heading">
+                                <span class="home-card-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 2c1 9 5 13 14 14-9 1-13 5-14 14-1-9-5-13-14-14C11 15 15 11 16 2Z"/></svg>
+                                </span>
+                                <span class="home-card-copy">
+                                    <span class="panel-label" id="category-9">AI &amp; real-time analytics</span>
+                                    <span class="home-card-challenge" id="challenge-9">Data keeps arriving, but trends and anomalies go unnoticed?</span>
+                                </span>
+                            </h3>
+                            <span class="home-card-hint" aria-hidden="true">Click the arrow to see how we help</span>
+                            <svg class="card-doodle" viewBox="0 0 54 48" fill="none" aria-hidden="true"><path d="m10 27-7-9m18 4-2-15m12 21 13-4" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+                        </div>
+                        <details class="home-card-disclosure" name="home-challenges">
+                            <summary class="home-card-toggle" aria-label="How we help with AI &amp; real-time analytics" aria-controls="answer-9"><svg viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+                            <div class="home-example-solution" id="answer-9">
+                                <p><strong>How we help:</strong> Prepare data for analytics and AI workflows, with anomaly detection and near-real-time visibility to support earlier action.</p>
+                            </div>
+                        </details>
+                    </article>
+                </div>
+                <aside class="home-team-note" aria-label="Working with Nexusflow">
+                    <svg class="home-location-icon" viewBox="0 0 24 28" fill="none" aria-hidden="true"><path d="M21 11c0 7-9 14-9 14S3 18 3 11a9 9 0 0 1 18 0Z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="11" r="3" stroke="currentColor" stroke-width="1.7"/></svg>
+                    <p><strong>A small team based in Vancouver, Canada.</strong> Practical consulting, development, and R&amp;D,
+                        from a focused integration task to a connected data platform.</p>
+                    <img class="home-vancouver-art" src="images/vancouver-sketch.svg" alt="" width="600" height="165">
                 </aside>
-            </div>
-        </section>
-
-        <section class="section">
-            <div class="container section-heading">
-                <p class="eyebrow">What we help with</p>
-                <h2>Clearer data systems. Less manual work. Better visibility.</h2>
-                <p>
-                    Nexusflow helps teams connect systems, automate data flows, and deliver reporting that is easier to use.
-                </p>
-            </div>
-            <div class="container card-grid card-grid-three">
-                <article class="feature-card">
-                    <h3>Data architecture</h3>
-                    <p>Design systems for cleaner ingestion, transformation, and storage.</p>
-                </article>
-                <article class="feature-card">
-                    <h3>Reporting and analytics</h3>
-                    <p>Build dashboards, Power BI reporting, and real-time visibility.</p>
-                </article>
-                <article class="feature-card">
-                    <h3>Automation</h3>
-                    <p>Replace manual exports and recurring spreadsheet work with dependable data flows.</p>
-                </article>
-            </div>
-        </section>
-
-        <section class="section section-soft">
-            <div class="container split-layout">
-                <div>
-                    <p class="eyebrow">A good fit for Nexusflow</p>
-                    <h2>You need practical help with a messy data problem.</h2>
-                    <p>
-                        That might mean a data lake, a large ETL pipeline, an IoT integration, or one recurring manual
-                        report that needs to be automated.
-                    </p>
-                </div>
-                <div class="bullet-card">
-                    <h3>Common starting points</h3>
-                    <ul class="check-list">
-                        <li>Manual CSV exports and recurring reports</li>
-                        <li>Disconnected APIs and business systems</li>
-                        <li>IoT or OPC-UA data that is hard to use</li>
-                        <li>Large pipelines that need better structure</li>
-                    </ul>
-                </div>
-            </div>
-        </section>
-
-        <section class="section">
-            <div class="container section-heading">
-                <p class="eyebrow">Services overview</p>
-                <h2>Support for both quick fixes and larger engineering work.</h2>
-            </div>
-            <div class="container card-grid card-grid-three">
-                <article class="service-card">
-                    <h3>Data Architecture &amp; Engineering</h3>
-                    <p>Plan and build maintainable data systems.</p>
-                </article>
-                <article class="service-card">
-                    <h3>Data Lakes &amp; Big Data Pipelines</h3>
-                    <p>Design high-volume pipelines and scalable lakehouse workflows.</p>
-                </article>
-                <article class="service-card">
-                    <h3>ETL / ELT &amp; Data Integration</h3>
-                    <p>Build reliable pipelines across APIs, files, and operational systems.</p>
-                </article>
-                <article class="service-card">
-                    <h3>IoT / OPC-UA Data Systems</h3>
-                    <p>Collect and structure industrial data for monitoring and analysis.</p>
-                </article>
-                <article class="service-card">
-                    <h3>Dashboards &amp; Power BI Reporting</h3>
-                    <p>Create dashboards and reporting pipelines that are easier to trust.</p>
-                </article>
-                <article class="service-card">
-                    <h3>AI &amp; Real-Time Analytics</h3>
-                    <p>Support AI-ready data flows, anomaly detection, and real-time visibility.</p>
-                </article>
-            </div>
-            <div class="container section-actions">
-                <a class="btn btn-secondary" href="services.html">Explore the Full Services Page</a>
-            </div>
-        </section>
-
-        <section class="section section-accent">
-            <div class="container cta-band">
-                <div>
-                    <p class="eyebrow">Small projects welcome</p>
-                    <h2>Need help with one awkward workflow first?</h2>
-                    <p>
-                        From one API integration to a recurring report, Nexusflow can help you move from manual work to a cleaner process.
-                    </p>
-                </div>
-                <a class="btn btn-primary" href="contact.html">Talk About Your Project</a>
             </div>
         </section>
     </main>
 
-    <footer class="site-footer">
-        <div class="container footer-grid">
-            <div>
-                <img src="images/nxflo_logo_prod.png" alt="Nexusflow logo" class="footer-logo">
-                <p class="footer-description">Nexusflow Inc helps teams design data architecture, modernise pipelines,
-                    and deliver useful analytics and reporting.</p>
-            </div>
-            <div>
-                <h2>Navigation</h2>
-                <ul class="footer-links">
-                    <li><a href="index.html">Home</a></li>
-                    <li><a href="about.html">About</a></li>
-                    <li><a href="services.html">Services</a></li>
-                    <li><a href="contact.html">Contact</a></li>
-                </ul>
-            </div>
-            <div>
-                <h2>Contact</h2>
-                <ul class="footer-links">
-                    <li><a href="mailto:sales@nxflo.com">sales@nxflo.com</a></li>
-                    <li><a href="https://www.linkedin.com/company/nexusflow-inc/" target="_blank" rel="noreferrer">LinkedIn</a></li>
-                </ul>
-            </div>
-        </div>
-        <div class="container footer-bottom">
-            <p>&copy; <span data-current-year></span> Nexusflow Inc. All rights reserved.</p>
-        </div>
-    </footer>
 
     <script src="script.js"></script>
 </body>

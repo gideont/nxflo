@@ -4,164 +4,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>About | Nexusflow Inc | Data Architecture, IoT &amp; Analytics</title>
+    <title>About | Nexusflow Inc | Practical Data and Workflow Consultancy</title>
     <meta name="description"
-        content="Learn how Nexusflow helps organisations with data architecture, data engineering, IoT integration, data lakes, ETL and ELT, analytics, reporting, Databricks, Power BI, and platform-flexible delivery.">
+        content="Learn how Nexusflow helps operations teams improve reporting, workflows, data integration, and delivery through practical consulting and engineering.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Caveat:wght@600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 
-<body>
+<body class="story-page">
     <a class="skip-link" href="#main">Skip to content</a>
 
-    <header class="site-header">
-        <div class="container nav-shell">
-            <a class="brand" href="index.html" aria-label="Nexusflow home">
-                <img src="images/nxflo_logo_prod.png" alt="Nexusflow logo" class="brand-logo">
-            </a>
-            <nav class="site-nav" aria-label="Primary">
-                <a href="index.html" data-nav="home">Home</a>
-                <a href="about.html" data-nav="about">About</a>
-                <a href="services.html" data-nav="services">Services</a>
-                <a href="contact.html" data-nav="contact">Contact</a>
-            </nav>
-            <a class="btn btn-primary nav-cta" href="contact.html">Contact Us</a>
-        </div>
-    </header>
+    <!-- include:site-header -->
 
-    <main id="main" class="page-main">
-        <section class="page-hero">
-            <div class="container section-heading narrow">
-                <p class="eyebrow">About Nexusflow</p>
-                <h1>Practical data architecture and engineering for operations, reporting, and analytics.</h1>
-                <p>
-                    Nexusflow helps organisations turn fragmented data from APIs, devices, industrial systems, files,
-                    and business tools into cleaner, more useful systems. The focus is on solid engineering,
-                    maintainable architecture, and outputs that help people run the business more effectively.
-                </p>
+    <main id="main" class="story-main about-main" tabindex="-1">
+        <section class="story-hero" aria-labelledby="about-title">
+            <div class="container story-hero-grid">
+                <div class="story-intro">
+                    <p class="eyebrow">About Nexusflow · Vancouver, Canada</p>
+                    <h1 id="about-title">A small team.<span>A connected approach.</span></h1>
+                    <p class="story-lead">We bring systems, data, and people together so your business can see what matters and act on it. Practical consulting, development, and R&amp;D, from one focused fix to a connected data platform.</p>
+                    <div class="story-actions">
+                        <a class="btn btn-primary" href="services.html">Explore our services <span aria-hidden="true">→</span></a>
+                        <a class="story-text-link" href="#approach">How we work <span aria-hidden="true">↓</span></a>
+                    </div>
+                </div>
+                <figure class="story-illustration">
+                    <img src="images/about-collaboration.png" width="1536" height="1024" fetchpriority="high" alt="Illustration of colleagues discussing a data project together in a sunny, plant-filled office.">
+                    <svg class="story-doodle" viewBox="0 0 600 390" fill="none" aria-hidden="true">
+                        <path d="M476 11c74-45 141 13 112 111-18 62-113 88-149 32-33-51-23-107 37-143Z" fill="#eee6ff" opacity=".7"/>
+                        <path d="m573 30 13-21m-2 36 26-12" stroke="#a674ff" stroke-width="7" stroke-linecap="round"/>
+                        <path d="M-13 308c-1 36 69 79 152 61" stroke="#ed92c6" stroke-width="4" stroke-linecap="round"/>
+                    </svg>
+                    <figcaption>Good people.<br>Useful solutions.<svg viewBox="0 0 48 40" fill="none" aria-hidden="true"><path d="M40 32C12 37 7 14 17 12c11-3 7 17-4 15m0 0 2-9m-2 9 10 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></figcaption>
+                </figure>
             </div>
         </section>
 
-        <section class="section">
-            <div class="container split-layout">
-                <div>
-                    <p class="eyebrow">Who we help</p>
-                    <h2>Teams that need better data flow, clearer reporting, and less manual work.</h2>
-                    <p>
-                        Nexusflow is a strong fit for organisations dealing with operational complexity, industrial data,
-                        growing ETL or ELT workloads, reporting bottlenecks, or data spread across too many systems.
-                        The work ranges from practical process improvements to broader platform and architecture efforts.
-                    </p>
-                </div>
-                <div class="bullet-card">
-                    <h3>What that often looks like</h3>
-                    <ul class="check-list">
-                        <li>Connecting business systems, devices, APIs, and data stores</li>
-                        <li>Building dashboards and reporting workflows that people can rely on</li>
-                        <li>Designing data lakes and scalable pipelines for larger data volumes</li>
-                        <li>Moving teams away from manual files and fragile reporting processes</li>
-                    </ul>
+        <section id="approach" class="story-section" aria-labelledby="approach-title">
+            <div class="container">
+                <div class="story-section-heading"><p class="eyebrow">Built around your business</p><h2 id="approach-title">Technical expertise. A human approach.</h2><p>For operations teams, local IT businesses, and growing organisations with data spread across software, devices, and databases.</p></div>
+                <div class="story-principles">
+                    <article class="story-card"><span class="story-icon card-pink" aria-hidden="true"><svg viewBox="0 0 32 32"><use href="images/ui-icons.svg#team"></use></svg></span><h3>Work directly with a small team</h3><p>Nexusflow is based in Vancouver, Canada. We listen to how your business works and keep the conversation clear, practical, and focused on the job.</p></article>
+                    <article class="story-card"><span class="story-icon card-green" aria-hidden="true"><svg viewBox="0 0 32 32"><use href="images/ui-icons.svg#gear"></use></svg></span><h3>Get support where you need it</h3><p>A reporting fix, an API integration, or a workflow project can be enough to start. Get focused technical support when the task does not need a full-time employee.</p></article>
+                    <article class="story-card"><span class="story-icon card-purple" aria-hidden="true"><svg viewBox="0 0 32 32"><use href="images/ui-icons.svg#layers"></use></svg></span><h3>Build with room to grow</h3><p>Start with a useful improvement, then extend it into reliable pipelines, data lakes, and larger platforms as your needs develop.</p></article>
                 </div>
             </div>
         </section>
 
-        <section class="section section-soft">
-            <div class="container section-heading">
-                <p class="eyebrow">Core capabilities</p>
-                <h2>Broad data engineering capability with a practical delivery style.</h2>
-            </div>
-            <div class="container card-grid card-grid-three">
-                <article class="service-card">
-                    <h3>Data architecture</h3>
-                    <p>Design architecture for data lakes, analytics pipelines, operational reporting, and scalable data processing.</p>
-                </article>
-                <article class="service-card">
-                    <h3>Data engineering</h3>
-                    <p>Build reliable ETL or ELT, high-volume ingestion, transformations, and batch or near-real-time workflows.</p>
-                </article>
-                <article class="service-card">
-                    <h3>IoT and operational data</h3>
-                    <p>Integrate OPC-UA, device, and industrial data into reporting and analytics systems that are easier to use.</p>
-                </article>
-                <article class="service-card">
-                    <h3>Reporting and dashboards</h3>
-                    <p>Support operational analytics, Power BI reporting, and the data pipelines needed behind the dashboard.</p>
-                </article>
-                <article class="service-card">
-                    <h3>Data lakes and big data workflows</h3>
-                    <p>Structure storage, processing, and ingestion for growing data volumes and more demanding analysis needs.</p>
-                </article>
-                <article class="service-card">
-                    <h3>Automation and integration</h3>
-                    <p>Replace repetitive manual exports and disconnected workflows with cleaner, more dependable data movement.</p>
-                </article>
+        <section class="story-section" aria-labelledby="capability-title">
+            <div class="container story-capabilities">
+                <div class="story-capability-copy"><p class="eyebrow">Engineering behind the work</p><h2 id="capability-title">Technical depth.<br><span>Practical choices.</span></h2><p>We work with Databricks for scalable data engineering and Power BI for operational reporting, while staying flexible around your existing environment.</p><p>The right platform is the one that fits your systems, operating needs, and next stage of growth.</p><a class="story-text-link" href="services.html">See what we can help with <span aria-hidden="true">→</span></a></div>
+                <ul class="story-capability-list" aria-label="Core capabilities">
+                    <li><span class="story-icon card-purple" aria-hidden="true"><svg viewBox="0 0 32 32"><use href="images/ui-icons.svg#layers"></use></svg></span><div><h3>Data architecture</h3><p>Data lakes, storage, and platforms that can grow.</p></div></li>
+                    <li><span class="story-icon card-pink" aria-hidden="true"><svg viewBox="0 0 32 32"><use href="images/ui-icons.svg#database"></use></svg></span><div><h3>Data engineering</h3><p>ETL, ELT, ingestion, and dependable transformations.</p></div></li>
+                    <li><span class="story-icon card-teal" aria-hidden="true"><svg viewBox="0 0 32 32"><use href="images/ui-icons.svg#factory"></use></svg></span><div><h3>Industrial &amp; IoT data</h3><p>OPC-UA and device data made usable.</p></div></li>
+                    <li><span class="story-icon card-blue" aria-hidden="true"><svg viewBox="0 0 32 32"><use href="images/ui-icons.svg#chart"></use></svg></span><div><h3>Reporting &amp; dashboards</h3><p>Power BI, operational analytics, and reliable refreshes.</p></div></li>
+                    <li><span class="story-icon card-gold" aria-hidden="true"><svg viewBox="0 0 32 32"><use href="images/ui-icons.svg#sparkle"></use></svg></span><div><h3>Processing at scale</h3><p>Large workloads, batch, and near-real-time data.</p></div></li>
+                    <li><span class="story-icon card-orange" aria-hidden="true"><svg viewBox="0 0 32 32"><use href="images/ui-icons.svg#plug"></use></svg></span><div><h3>Integration &amp; automation</h3><p>Connected APIs, focused apps, and smoother workflows.</p></div></li>
+                </ul>
             </div>
         </section>
 
-        <section class="section">
-            <div class="container section-heading">
-                <p class="eyebrow">Platforms and tools</p>
-                <h2>Experienced with Databricks and Power BI, while staying flexible around client environments.</h2>
-                <p>
-                    Nexusflow is comfortable working with Databricks for modern data engineering and analytics
-                    workflows, and with Power BI for reporting and dashboards. At the same time, the approach is not
-                    tied to one platform. The goal is to use the right tools for the client’s existing environment,
-                    operating needs, and future direction.
-                </p>
-            </div>
-            <div class="container card-grid card-grid-three">
-                <article class="feature-card">
-                    <h3>Databricks strength</h3>
-                    <p>Useful for data engineering, scalable processing, and analytics workflows where it fits the client context.</p>
-                </article>
-                <article class="feature-card">
-                    <h3>Power BI reporting</h3>
-                    <p>Strong fit for operational dashboards and reporting when the underlying data model and pipelines are handled properly.</p>
-                </article>
-                <article class="feature-card">
-                    <h3>Platform-flexible delivery</h3>
-                    <p>Nexusflow can also work with other data platforms, integration tools, and existing client systems as needed.</p>
-                </article>
-            </div>
-        </section>
-
-        <section class="section section-accent">
-            <div class="container section-heading narrow">
-                <p class="eyebrow">Why Nexusflow</p>
-                <h2>A consultancy that can handle serious engineering work without feeling distant or overcomplicated.</h2>
-            </div>
-            <div class="container card-grid card-grid-four">
-                <article class="feature-card">
-                    <h3>Practical by default</h3>
-                    <p>The work is anchored in what will reduce friction, improve visibility, and keep data usable.</p>
-                </article>
-                <article class="feature-card">
-                    <h3>Operationally grounded</h3>
-                    <p>Strong fit for environments where business systems and operational data need to come together cleanly.</p>
-                </article>
-                <article class="feature-card">
-                    <h3>Comfortable with scale</h3>
-                    <p>Capable of supporting data lakes, large ETL pipelines, and higher-volume reporting and analytics systems.</p>
-                </article>
-                <article class="feature-card">
-                    <h3>Approachable scope</h3>
-                    <p>A focused reporting fix, an API integration, or a larger data platform effort can all be sensible starting points.</p>
-                </article>
-            </div>
-        </section>
-
-        <section class="section">
-            <div class="container cta-band">
-                <div>
-                    <p class="eyebrow">Start the conversation</p>
-                    <h2>If your data is fragmented, manual, or hard to trust, Nexusflow can help.</h2>
-                    <p>Whether the need is a practical reporting improvement or a broader architecture initiative, the next step is a simple conversation.</p>
-                </div>
-                <a class="btn btn-primary" href="contact.html">Contact Us</a>
+        <section class="story-section story-last" aria-labelledby="conversation-title">
+            <div class="container story-cta">
+                <span class="story-icon card-pink" aria-hidden="true"><svg viewBox="0 0 32 32"><use href="images/ui-icons.svg#team"></use></svg></span>
+                <div><p class="eyebrow">Free initial consultation</p><h2 id="conversation-title">Let’s put the pieces together.</h2><p>Tell us what is disconnected, manual, or hard to trust. We can help you find a focused next step.</p></div>
+                <a class="btn btn-primary" href="contact.html">Discuss your project <span aria-hidden="true">→</span></a>
             </div>
         </section>
     </main>
@@ -170,8 +82,7 @@
         <div class="container footer-grid">
             <div>
                 <img src="images/nxflo_logo_prod.png" alt="Nexusflow logo" class="footer-logo">
-                <p class="footer-description">Nexusflow Inc helps teams design data architecture, modernise pipelines,
-                    and deliver useful analytics and reporting.</p>
+                <p class="footer-description">Nexusflow Inc helps businesses solve reporting, data, integration, automation, and technology challenges through practical consulting, development, and R&amp;D.</p>
             </div>
             <div>
                 <h2>Navigation</h2>
