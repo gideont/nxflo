@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from lib.site import render_page
+from lib.seo import crawl_assets
 
 
 WATCH_EXTENSIONS = {".html", ".css", ".js", ".py", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
@@ -91,6 +92,16 @@ class HotReloadHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=directory, **kwargs)
 
     def do_GET(self) -> None:
+        asset_name = urlsplit(self.path).path.lstrip("/")
+        assets = crawl_assets()
+        if asset_name in assets:
+            content = assets[asset_name].encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/xml; charset=utf-8" if asset_name.endswith(".xml") else "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
         if self.path == HOT_RELOAD_PATH:
             self.serve_hot_reload_stream()
             return

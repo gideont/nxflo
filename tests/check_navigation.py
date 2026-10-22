@@ -3,12 +3,13 @@
 Requires Playwright with Chromium and a running built site.
 """
 import argparse
+from pathlib import Path
 
 
 def check(url: str, executable: str | None) -> None:
     from playwright.sync_api import sync_playwright
 
-    pages = ("index.html", "about.html", "services.html", "contact.html", "thanks.html")
+    pages = [path.name for path in sorted(Path(__file__).resolve().parents[1].glob("*.html"))]
     geometry = """() => [...document.querySelectorAll('.site-header, .brand-logo, .site-nav a')]
         .map(e => { const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; })"""
     with sync_playwright() as playwright:
@@ -16,7 +17,7 @@ def check(url: str, executable: str | None) -> None:
         if executable:
             options["executable_path"] = executable
         browser = playwright.chromium.launch(**options)
-        page = browser.new_page()
+        page = browser.new_page(ignore_https_errors=True)
         for width, height in ((1440, 900), (1440, 1200), (1920, 1600), (320, 568), (375, 667), (430, 932)):
             page.set_viewport_size({"width": width, "height": height})
             baseline = None
@@ -25,6 +26,12 @@ def check(url: str, executable: str | None) -> None:
                 page.evaluate("document.fonts.ready")
                 assert response.status == 200, name
                 current = page.evaluate(geometry)
+                active = page.locator('.site-nav a[aria-current="page"]')
+                expected = "services.html" if page.locator('.service-detail').count() else name
+                if name == "thanks.html":
+                    assert active.count() == 0
+                else:
+                    assert active.count() == 1 and active.get_attribute("href") == expected
                 if baseline is None:
                     baseline = current
                 assert current == baseline, f"Header moved on {name} at {width}x{height}"

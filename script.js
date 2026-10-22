@@ -4,16 +4,8 @@ document.addEventListener("DOMContentLoaded", () => {
         node.textContent = String(year);
     });
 
-    const currentPage = window.location.pathname.split("/").pop() || "index.html";
-    document.querySelectorAll(".site-nav [data-nav]").forEach((link) => {
-        link.classList.remove("is-active");
-        link.removeAttribute("aria-current");
-        const linkPage = new URL(link.href).pathname.split("/").pop();
-        if (linkPage === currentPage) {
-            link.classList.add("is-active");
-            link.setAttribute("aria-current", "page");
-        }
-    });
+    // The shared renderer marks the current navigation section, including
+    // service detail pages. Keep that single source of truth with or without JS.
 
     const disclosures = [...document.querySelectorAll(".home-card-disclosure")];
     const setExpanded = (disclosure, expanded) => {

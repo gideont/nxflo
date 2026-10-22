@@ -103,11 +103,6 @@ textarea {
     flex-shrink: 0;
 }
 
-.footer-logo {
-    width: 280px;
-    height: 109px;
-}
-
 .brand-logo {
     width: 240px;
     height: auto;
@@ -259,7 +254,6 @@ textarea {
 .panel-card p,
 .contact-form p,
 .contact-copy p,
-.footer-description,
 .form-note {
     color: var(--text-muted);
 }
@@ -328,8 +322,7 @@ textarea {
 
 .hero-points,
 .check-list,
-.plain-list,
-.footer-links {
+.plain-list {
     list-style: none;
 }
 
@@ -417,7 +410,6 @@ textarea {
 
 .proof-grid,
 .card-grid,
-.footer-grid,
 .contact-layout {
     display: grid;
     gap: 1.25rem;
@@ -618,47 +610,215 @@ textarea {
 }
 
 .site-footer {
-    padding: 4rem 0 2rem;
-    border-top: 1px solid rgba(213, 198, 176, 0.55);
-    background: rgba(255, 255, 255, 0.65);
+    padding: 3rem 0 0;
+    border-top: 1px solid #e8e2d9;
+    background: #fffdf9;
+    color: #0c1635;
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    line-height: 1.65;
+}
+
+.site-footer .container {
+    width: min(var(--container), calc(100% - 2.5rem));
 }
 
 .footer-grid {
-    grid-template-columns: 1.25fr 0.7fr 0.7fr;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.5fr) minmax(0, 1.15fr);
+    gap: clamp(2rem, 4.5vw, 4rem);
     align-items: start;
 }
 
+.footer-grid > * {
+    min-width: 0;
+}
+
+.footer-brand {
+    position: relative;
+    display: block;
+    width: 200px;
+    height: 74px;
+    max-width: 100%;
+    min-height: 44px;
+    overflow: hidden;
+}
+
+.footer-logo {
+    /* Trim transparent padding in this display only; keep the logo asset intact. */
+    position: absolute;
+    top: -20px;
+    left: -34px;
+    width: 240px;
+    max-width: none;
+    height: auto;
+}
+
 .footer-description {
-    max-width: 34ch;
-    margin-top: 0.75rem;
+    max-width: 40ch;
+    margin-top: 1rem;
+    color: #62717a;
 }
 
 .footer-grid h2 {
-    color: var(--heading);
     font-size: 1rem;
-    margin-bottom: 0.9rem;
+    font-weight: 600;
+    line-height: 1.4;
+    margin-bottom: 0.75rem;
+}
+
+.footer-navigation h2 {
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #087776;
+}
+
+.footer-local h2 {
+    max-width: 28ch;
+    font-size: 1.15rem;
+    text-wrap: balance;
+}
+
+.footer-positioning {
+    max-width: 44ch;
+    margin-bottom: 1rem;
+    color: #62717a;
+}
+
+.footer-canadian-logo {
+    display: inline-block;
+    width: 1.25em;
+    height: 1.25em;
+    margin-left: 0.2em;
+    vertical-align: -0.2em;
+}
+
+.footer-country {
+    white-space: nowrap;
+}
+
+.footer-contact {
+    font-style: normal;
 }
 
 .footer-links {
+    list-style: none;
     display: grid;
-    gap: 0.7rem;
+    gap: 0;
 }
 
 .footer-links a {
-    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: fit-content;
+    min-height: 30px;
+    max-width: 100%;
+    padding: 0.15rem 0;
+    color: #4e626f;
+    line-height: 1.5;
     text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.footer-links a span {
+    min-width: 0;
+}
+
+.footer-contact svg {
+    flex: 0 0 19px;
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: #087776;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .footer-links a:hover {
-    color: var(--heading);
+    color: #087776;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+.site-footer a:focus-visible {
+    outline: 3px solid #8037ce;
+    outline-offset: 4px;
+    border-radius: 4px;
+}
+
+.footer-artwork {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
+
+.footer-vancouver-art {
+    width: min(100%, 440px);
+    height: auto;
+    opacity: 0.85;
+    pointer-events: none;
 }
 
 .footer-bottom {
-    margin-top: 2rem;
-    padding-top: 1.4rem;
-    border-top: 1px solid rgba(213, 198, 176, 0.55);
-    color: var(--text-muted);
-    font-size: 0.95rem;
+    padding: 1rem 0;
+    border-top: 1px solid #e8e2d9;
+    color: #62717a;
+    font-size: 0.8125rem;
+    line-height: 1.8;
+}
+
+.footer-bottom p {
+    overflow-wrap: break-word;
+    text-wrap: pretty;
+}
+
+.footer-legal-part {
+    display: inline-block;
+    max-width: 100%;
+    vertical-align: top;
+}
+
+@media (max-width: 800px), (any-pointer: coarse) {
+    .footer-links a {
+        min-height: 44px;
+    }
+}
+
+@media (max-width: 800px) {
+    .footer-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2rem;
+    }
+
+    .footer-description {
+        max-width: 50ch;
+    }
+
+    .footer-navigation .footer-links {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        max-width: 320px;
+    }
+
+    .footer-vancouver-art {
+        width: min(100%, 360px);
+    }
+}
+
+@media (max-width: 540px) {
+    .site-footer {
+        padding-top: 2rem;
+    }
+
+    .footer-artwork {
+        margin-top: 1.25rem;
+    }
+
+    .footer-bottom {
+        padding: 1.1rem 0;
+    }
 }
 
 @media (max-width: 1080px) {
@@ -666,7 +826,6 @@ textarea {
     .hero-grid,
     .split-layout,
     .contact-layout,
-    .footer-grid,
     .card-grid-four {
         grid-template-columns: 1fr;
     }
@@ -700,11 +859,6 @@ textarea {
 
     .brand-logo {
         width: 180px;
-    }
-
-    .footer-logo {
-        width: 220px;
-        height: 85px;
     }
 
     .hero,
@@ -817,7 +971,7 @@ textarea {
 .home-image-note { position: absolute; bottom: -2.4rem; right: -1rem; color: #4457a2; font-family: "Caveat", cursive; font-size: clamp(1.15rem, 1.7vw, 1.5rem); line-height: 1; transform: rotate(-8deg); }
 .home-image-note svg { position: absolute; width: 42px; height: 36px; left: -42px; top: 0; }
 
-.home-examples { padding: 1.75rem 0 0; scroll-margin-top: 7rem; }
+.home-examples { padding: 1.75rem 0 2.5rem; scroll-margin-top: 7rem; }
 .home-examples-heading { position: relative; margin-bottom: 1.5rem; }
 .home-examples-heading .eyebrow { margin-bottom: 0.65rem; }
 .home-examples-heading h2 { margin-bottom: 0.45rem; color: var(--home-navy); font-family: var(--font-serif); font-size: clamp(2.2rem, 3.3vw, 3rem); font-weight: 600; line-height: 1.1; letter-spacing: -0.035em; }
@@ -877,11 +1031,6 @@ textarea {
 .home-example-card:nth-child(8) .card-doodle path { d: path("M7 6C38-1 49 17 41 38"); stroke-width: 2.5px; }
 .home-example-card:nth-child(8) .card-doodle { right: -11px; top: -4px; }
 
-.home-team-note { position: relative; display: flex; align-items: flex-start; gap: 1rem; margin-top: 1.9rem; padding: 1.5rem 0 3.5rem; border-top: 1px solid #e8e2d9; color: #75829c; font-size: 0.85rem; line-height: 1.4; isolation: isolate; }
-.home-team-note p { max-width: 76ch; }
-.home-team-note strong { color: var(--home-navy); font-weight: 600; }
-.home-location-icon { flex: 0 0 22px; width: 22px; height: 26px; }
-.home-vancouver-art { position: absolute; right: -3.5rem; bottom: 0; width: 520px; max-width: 60%; height: auto; z-index: -1; pointer-events: none; }
 .home-main a:focus-visible,
 .home-card-toggle:focus-visible { outline: 3px solid #8037ce; outline-offset: 4px; border-radius: 12px; }
 
@@ -931,8 +1080,6 @@ textarea {
     .card-doodle { width: 28px; height: 25px; }
     .home-example-card:nth-child(3n+1) .card-doodle { left: -16px; }
     .home-example-card:nth-child(3n) .card-doodle { right: -15px; }
-    .home-team-note { gap: 0.65rem; padding-bottom: 6rem; font-size: 0.85rem; }
-    .home-vancouver-art { max-width: none; width: 360px; right: -20px; opacity: 0.8; }
 }
 @media (prefers-reduced-motion: reduce) {
     .home-example-card, .home-card-toggle svg { transition: none; }
@@ -994,6 +1141,7 @@ textarea {
 .story-services-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .story-service-card { display: flex; align-items: flex-start; gap: 1rem; }
 .story-service-copy { min-width: 0; }
+.story-service-copy > .story-text-link { margin-top: 0.75rem; font-size: 0.9rem; }
 .story-service-card h3 { font-size: 1.4rem; }
 .story-service-card ul { display: grid; gap: 0.4rem; margin-top: 1rem; list-style: none; font-size: 0.9rem; color: #52647d; }
 .story-service-card li { position: relative; padding-left: 1rem; }
@@ -1021,8 +1169,36 @@ textarea {
 .story-cta { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 1.25rem; align-items: center; padding: 1.75rem; border: 1px solid #ecdfd1; border-radius: 24px; background: linear-gradient(110deg, #fff, #fff6f0 65%, #f6efff); }
 .story-cta h2 { font-size: clamp(1.8rem, 2.5vw, 2.4rem); margin-bottom: 0.6rem; }
 .story-cta p:not(.eyebrow) { max-width: 70ch; line-height: 1.5; }
-.story-page .site-footer { padding: 2.5rem 0 1.5rem; background: #fffdf9; }
-.story-page .footer-logo { width: 240px; height: auto; }
+
+/* Focused service pages reuse the established story typography and cards. */
+.service-breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem 0.65rem; margin: -1rem 0 1.5rem; color: #65758e; font-size: 0.85rem; }
+.service-breadcrumb a { display: inline-flex; align-items: center; min-height: 44px; color: #087776; text-underline-offset: 0.2rem; }
+.service-breadcrumb > span:last-child { overflow-wrap: anywhere; }
+.service-detail-hero { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 2.5rem; align-items: center; }
+.service-detail .story-lead { max-width: 60ch; }
+.service-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2.5rem; align-items: start; }
+.service-pain-card { background: linear-gradient(135deg, #fff, #faf3ff 75%, #fff4e8); }
+.service-pain-card h2, .service-example h2, .service-related h2 { font-size: clamp(1.7rem, 2.3vw, 2.1rem); }
+.service-detail-list { padding-left: 1.2rem; display: grid; gap: 0.75rem; margin-top: 1rem; color: #52647d; line-height: 1.6; }
+.service-detail-list li::marker { color: #087776; }
+.service-prose > p:not(.eyebrow), .service-example > p:not(.eyebrow) { margin-top: 1rem; line-height: 1.7; }
+.service-prose h3, .service-example h3 { margin-top: 1.5rem; font-size: 1.15rem; }
+.service-faq h2 { margin-bottom: 1rem; }
+.service-faq details { border-bottom: 1px solid #ecdfd1; padding: 0.4rem 0; }
+.service-faq summary { min-height: 44px; padding: 0.55rem 0; font-weight: 600; cursor: pointer; line-height: 1.5; }
+.service-faq summary:focus-visible { outline: 3px solid #8037ce; outline-offset: 3px; border-radius: 8px; }
+.service-faq details > p { padding: 0.4rem 0 1rem; line-height: 1.65; }
+.service-related { min-width: 0; }
+.service-related ul { list-style: none; margin-top: 1rem; }
+.service-reference { margin-top: 1.5rem; font-size: 0.85rem; line-height: 1.6; }
+.service-reference a { color: #087776; text-underline-offset: 0.2rem; }
+.home-answer-link { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; margin-top: 0.3rem; color: #087776; font-size: 0.85rem; font-weight: 600; text-underline-offset: 0.2rem; }
+
+@media (max-width: 800px) {
+    .service-detail-hero, .service-detail-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+    .service-detail .story-intro { max-width: none; }
+    .service-breadcrumb { margin-top: -0.5rem; margin-bottom: 1rem; }
+}
 
 @media (max-width: 1100px) {
     .story-hero-grid { gap: 2rem; }

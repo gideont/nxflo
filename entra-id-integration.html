@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- include:site-seo -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Caveat:wght@600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="story-page">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <!-- include:site-header -->
+    <main id="main" class="story-main service-detail" tabindex="-1">
+        <section class="story-hero" aria-labelledby="service-title">
+            <div class="container">
+                <nav class="service-breadcrumb" aria-label="Breadcrumb"><a href="index.html">Home</a><span aria-hidden="true">/</span><a href="services.html">Services</a><span aria-hidden="true">/</span><span aria-current="page">Microsoft Entra ID integration</span></nav>
+                <div class="service-detail-hero">
+                    <div class="story-intro">
+                        <p class="eyebrow">Application identity &amp; integration</p>
+                        <h1 id="service-title">Connect your applications.<span>Bring sign-in together.</span></h1>
+                        <p class="story-lead">Nexusflow helps integrate business applications with Microsoft Entra ID, formerly Azure Active Directory. Our Vancouver-based team supports focused projects around single sign-on (SSO), app registrations, and authorised Microsoft Graph API workflows.</p>
+                        <div class="story-actions"><a class="btn btn-primary" href="contact.html">Discuss your project <span aria-hidden="true">→</span></a><a class="story-text-link" href="#approach">How we help <span aria-hidden="true">↓</span></a></div>
+                    </div>
+                    <aside class="story-card service-pain-card" aria-labelledby="challenge-title">
+                        <span class="story-icon card-orange" aria-hidden="true"><svg viewBox="0 0 32 32"><use href="images/ui-icons.svg#plug"></use></svg></span>
+                        <h2 id="challenge-title">Identity is slowing down your integration?</h2>
+                        <ul class="service-detail-list"><li>Employees use separate accounts for an application that should share company sign-in.</li><li>An internal tool needs authentication but its app registration is unclear.</li><li>A workflow needs Microsoft data access and the required permissions are difficult to untangle.</li></ul>
+                    </aside>
+                </div>
+            </div>
+        </section>
+        <section id="approach" class="story-section" aria-labelledby="approach-title">
+            <div class="container service-detail-grid">
+                <div class="service-prose"><p class="eyebrow">How we help</p><h2 id="approach-title">Match identity to the application.</h2><p>We review the application’s supported sign-in protocol, your Entra tenant, and who should have access. Depending on the application, integration may use OpenID Connect or SAML for sign-in, and OAuth 2.0 for API authorisation. Microsoft Graph access is scoped separately to the workflow and the permissions your tenant administrators approve.</p><h3>What a project can include</h3><ul class="service-detail-list"><li>An assessment of the application’s Entra ID integration requirements.</li><li>App registration or enterprise application configuration appropriate to the project.</li><li>SSO integration and testing of agreed user access and sign-in behaviour.</li><li>Scoped API permissions, configuration notes, and a handover for your administrators.</li></ul></div>
+                <article class="story-card service-example"><p class="eyebrow">A practical example</p><h2>One sign-in for a focused internal tool</h2><p>For example, an operations team may need an internal reporting application to use employee company accounts. We can connect the application to Entra ID, define the intended access, and test the sign-in flow. If the tool also needs Microsoft Graph data, that API access is reviewed and configured as a separate part of the scope.</p><h3>Planning your project</h3><p>Tell us about the application, the sign-in experience you want, and any Microsoft APIs it needs. Your tenant administrator remains involved in approving access and permissions. We establish supported protocols and configuration responsibilities before making changes.</p></article>
+            </div>
+        </section>
+        <section class="story-section story-last" aria-labelledby="questions-title">
+            <div class="container service-detail-grid">
+                <div class="service-faq"><h2 id="questions-title">Useful questions</h2><details><summary>Is Entra ID the same product as Azure AD?</summary><p>Microsoft renamed Azure Active Directory to Microsoft Entra ID. Older applications or setup instructions may still use the Azure AD name; we review the actual integration requirements.</p></details>
+<details><summary>Does single sign-on automatically give an app Microsoft Graph access?</summary><p>No. Authentication and API permissions serve different purposes. Any Graph access needs the appropriate delegated or application permissions and consent, depending on the workflow and tenant policies.</p></details></div>
+                <aside class="service-related" aria-labelledby="related-title"><p class="eyebrow">Bring the pieces together</p><h2 id="related-title">Related services</h2><ul><li><a class="story-text-link" href="vancouver-it-support.html">Project-based Vancouver IT support <span aria-hidden="true">→</span></a></li><li><a class="story-text-link" href="etl-data-pipelines.html">API and data pipeline development <span aria-hidden="true">→</span></a></li></ul><p class="service-reference">Technology reference: <a href="https://learn.microsoft.com/en-us/entra/architecture/authenticate-applications-and-users">Microsoft: application authentication with Entra ID</a>.</p></aside>
+            </div>
+        </section>
+    </main>
+    <!-- include:site-footer -->
+    <script src="script.js"></script>
+</body>
+</html>

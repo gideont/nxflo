@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- include:site-seo -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Caveat:wght@600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="story-page">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <!-- include:site-header -->
+    <main id="main" class="story-main service-detail" tabindex="-1">
+        <section class="story-hero" aria-labelledby="service-title">
+            <div class="container">
+                <nav class="service-breadcrumb" aria-label="Breadcrumb"><a href="index.html">Home</a><span aria-hidden="true">/</span><a href="services.html">Services</a><span aria-hidden="true">/</span><span aria-current="page">ETL &amp; data pipelines</span></nav>
+                <div class="service-detail-hero">
+                    <div class="story-intro">
+                        <p class="eyebrow">Database, API &amp; file integration</p>
+                        <h1 id="service-title">Move the data you need.<span>In a format you can use.</span></h1>
+                        <p class="story-lead">Need to pull data from a database, transform it, and send it to another system? Nexusflow builds custom ETL data pipelines: Extract, Transform, Load. Our Vancouver-based team connects your data sources with the systems and reporting that depend on them.</p>
+                        <div class="story-actions"><a class="btn btn-primary" href="contact.html">Discuss your project <span aria-hidden="true">→</span></a><a class="story-text-link" href="#approach">How we help <span aria-hidden="true">↓</span></a></div>
+                    </div>
+                    <aside class="story-card service-pain-card" aria-labelledby="challenge-title">
+                        <span class="story-icon card-pink" aria-hidden="true"><svg viewBox="0 0 32 32"><use href="images/ui-icons.svg#database"></use></svg></span>
+                        <h2 id="challenge-title">Too many manual data transfers?</h2>
+                        <ul class="service-detail-list"><li>Teams repeatedly export, clean up, and import the same information.</li><li>Different systems use incompatible formats, identifiers, or field names.</li><li>Scheduled transfers fail silently or create duplicate records when retried.</li></ul>
+                    </aside>
+                </div>
+            </div>
+        </section>
+        <section id="approach" class="story-section" aria-labelledby="approach-title">
+            <div class="container service-detail-grid">
+                <div class="service-prose"><p class="eyebrow">How we help</p><h2 id="approach-title">Build a dependable path from source to target.</h2><p>We map the source data and the target requirements, then define the transformations and validation needed between them. The pipeline can use database connections, APIs, or files, depending on what your systems support. We agree on transfer frequency, access, error handling, and how the team will know that the data arrived correctly.</p><h3>What a project can include</h3><ul class="service-detail-list"><li>Source-to-target field mapping and transformations for the required data format.</li><li>Scheduled or incremental transfers where the source and target support them.</li><li>Validation, duplicate handling, and useful failure logs or notifications.</li><li>Documented deployment, configuration, and operating steps for your team.</li></ul></div>
+                <article class="story-card service-example"><p class="eyebrow">A practical example</p><h2>From an operational database to a reporting model</h2><p>For example, an operations team could extract daily records, standardise dates and customer identifiers, and load clean tables for Power BI. The same transfer pattern can support periodic data copies. A backup requirement also needs explicit decisions about consistency, retention, security, and restore testing.</p><h3>Planning your project</h3><p>Bring the source and target systems, a sample of the data, the expected volume, and the desired schedule. We clarify which records should move, how updates are represented, and what a successful transfer looks like before building the workflow.</p></article>
+            </div>
+        </section>
+        <section class="story-section story-last" aria-labelledby="questions-title">
+            <div class="container service-detail-grid">
+                <div class="service-faq"><h2 id="questions-title">Useful questions</h2><details><summary>What is the difference between ETL and ELT?</summary><p>ETL transforms data before loading it into the target. ELT loads first and performs transformations in the destination platform. We choose the approach to fit the systems, data volume, and operating requirements.</p></details>
+<details><summary>Can the pipeline run on a schedule or support periodic backups?</summary><p>Yes, a transfer can be scheduled and used for periodic data copies. When the goal is backup, we also scope retention, consistency, and restoration requirements so a successful transfer is not mistaken for a complete recovery plan.</p></details></div>
+                <aside class="service-related" aria-labelledby="related-title"><p class="eyebrow">Bring the pieces together</p><h2 id="related-title">Related services</h2><ul><li><a class="story-text-link" href="databricks-consulting.html">Databricks data engineering <span aria-hidden="true">→</span></a></li><li><a class="story-text-link" href="bms-data-integration.html">Building management system integration <span aria-hidden="true">→</span></a></li></ul><p class="service-reference">Technology reference: <a href="https://docs.databricks.com/aws/en/getting-started/data-pipeline-get-started">Databricks: data pipeline concepts</a>.</p></aside>
+            </div>
+        </section>
+    </main>
+    <!-- include:site-footer -->
+    <script src="script.js"></script>
+</body>
+</html>

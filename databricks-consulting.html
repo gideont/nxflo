@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- include:site-seo -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Caveat:wght@600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="story-page">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <!-- include:site-header -->
+    <main id="main" class="story-main service-detail" tabindex="-1">
+        <section class="story-hero" aria-labelledby="service-title">
+            <div class="container">
+                <nav class="service-breadcrumb" aria-label="Breadcrumb"><a href="index.html">Home</a><span aria-hidden="true">/</span><a href="services.html">Services</a><span aria-hidden="true">/</span><span aria-current="page">Databricks consulting</span></nav>
+                <div class="service-detail-hero">
+                    <div class="story-intro">
+                        <p class="eyebrow">Apache Spark &amp; data engineering</p>
+                        <h1 id="service-title">When your data grows,<span>your processing can too.</span></h1>
+                        <p class="story-lead">Are pandas scripts or legacy data jobs failing as data gets larger? Nexusflow provides Databricks consulting and data engineering from Vancouver, helping teams build scalable transformations, dependable pipelines, and data that is ready for reporting.</p>
+                        <div class="story-actions"><a class="btn btn-primary" href="contact.html">Discuss your project <span aria-hidden="true">→</span></a><a class="story-text-link" href="#approach">How we help <span aria-hidden="true">↓</span></a></div>
+                    </div>
+                    <aside class="story-card service-pain-card" aria-labelledby="challenge-title">
+                        <span class="story-icon card-purple" aria-hidden="true"><svg viewBox="0 0 32 32"><use href="images/ui-icons.svg#layers"></use></svg></span>
+                        <h2 id="challenge-title">Your data jobs cannot keep up?</h2>
+                        <ul class="service-detail-list"><li>A transformation exceeds the memory available on a single machine.</li><li>Long-running scripts are difficult to schedule, retry, or troubleshoot.</li><li>Your data lake holds files, but reporting teams still need consistent, usable tables.</li></ul>
+                    </aside>
+                </div>
+            </div>
+        </section>
+        <section id="approach" class="story-section" aria-labelledby="approach-title">
+            <div class="container service-detail-grid">
+                <div class="service-prose"><p class="eyebrow">How we help</p><h2 id="approach-title">Choose a processing model that fits.</h2><p>Apache Spark can distribute data and processing across multiple machines. Databricks provides a platform for building and operating these workloads. We assess data volumes, transformations, dependencies, and cost before recommending a move; a smaller workload may only need a better existing pipeline.</p><h3>What a project can include</h3><ul class="service-detail-list"><li>Assessment of pandas or legacy transformations and suitable migration steps.</li><li>Spark-based ingestion and transformations with clear data quality checks.</li><li>Structured data lake tables and scheduled Databricks jobs.</li><li>Reporting-ready outputs, operational notes, and guidance on workload sizing.</li></ul></div>
+                <article class="story-card service-example"><p class="eyebrow">A practical example</p><h2>A daily transformation with room to grow</h2><p>For example, a daily job may join large transaction exports with reference data and then produce reporting tables. We can redesign the transformation around Spark, validate the output against the existing process, and organise the work into scheduled jobs with failure visibility. Processing performance depends on the data, code, and compute configuration.</p><h3>Planning your project</h3><p>Share typical data volumes, file formats, runtime problems, and a sample of the current transformation. We use that context to define a limited first workload and its success criteria before extending the platform.</p></article>
+            </div>
+        </section>
+        <section class="story-section story-last" aria-labelledby="questions-title">
+            <div class="container service-detail-grid">
+                <div class="service-faq"><h2 id="questions-title">Useful questions</h2><details><summary>Should every pandas job move to Databricks?</summary><p>No. Pandas is useful for workloads that fit the available resources. Spark and Databricks become relevant when scale, shared processing, or operational requirements justify the additional platform and compute costs.</p></details>
+<details><summary>Can Databricks support Power BI reporting?</summary><p>Yes. Power BI can connect to supported Databricks compute and SQL warehouses. We help prepare the reporting tables, choose a suitable connection approach, and check access and refresh requirements.</p></details></div>
+                <aside class="service-related" aria-labelledby="related-title"><p class="eyebrow">Bring the pieces together</p><h2 id="related-title">Related services</h2><ul><li><a class="story-text-link" href="etl-data-pipelines.html">ETL and data pipelines <span aria-hidden="true">→</span></a></li><li><a class="story-text-link" href="power-bi-consulting.html">Power BI reporting <span aria-hidden="true">→</span></a></li></ul><p class="service-reference">Technology reference: <a href="https://docs.databricks.com/aws/en/getting-started/etl-quick-start">Databricks: building an ETL pipeline</a>.</p></aside>
+            </div>
+        </section>
+    </main>
+    <!-- include:site-footer -->
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- include:site-seo -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Caveat:wght@600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="story-page">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <!-- include:site-header -->
+    <main id="main" class="story-main service-detail" tabindex="-1">
+        <section class="story-hero" aria-labelledby="service-title">
+            <div class="container">
+                <nav class="service-breadcrumb" aria-label="Breadcrumb"><a href="index.html">Home</a><span aria-hidden="true">/</span><a href="services.html">Services</a><span aria-hidden="true">/</span><span aria-current="page">BMS data integration</span></nav>
+                <div class="service-detail-hero">
+                    <div class="story-intro">
+                        <p class="eyebrow">Building management systems</p>
+                        <h1 id="service-title">Make building data useful.<span>Beyond the control room.</span></h1>
+                        <p class="story-lead">Nexusflow connects building management system (BMS) data with the reporting and data platforms your business uses. Based in Vancouver, Canada, we help make HVAC, energy, and sensor information easier to collect, understand, and act on.</p>
+                        <div class="story-actions"><a class="btn btn-primary" href="contact.html">Discuss your project <span aria-hidden="true">→</span></a><a class="story-text-link" href="#approach">How we help <span aria-hidden="true">↓</span></a></div>
+                    </div>
+                    <aside class="story-card service-pain-card" aria-labelledby="challenge-title">
+                        <span class="story-icon card-teal" aria-hidden="true"><svg viewBox="0 0 32 32"><use href="images/ui-icons.svg#factory"></use></svg></span>
+                        <h2 id="challenge-title">Is your building data hard to use?</h2>
+                        <ul class="service-detail-list"><li>Energy readings, equipment trends, and business reports live in separate systems.</li><li>Staff export trend logs and rebuild the same spreadsheets every month.</li><li>Missing readings, inconsistent units, or unclear timestamps make comparisons difficult.</li></ul>
+                    </aside>
+                </div>
+            </div>
+        </section>
+        <section id="approach" class="story-section" aria-labelledby="approach-title">
+            <div class="container service-detail-grid">
+                <div class="service-prose"><p class="eyebrow">How we help</p><h2 id="approach-title">Connect the data you already have.</h2><p>We begin by checking how your existing BMS exposes data: an API, a supported gateway, a database, or exported trend logs. Where your environment supports OPC UA, it can provide another route to structured device data. The integration method depends on the installed system and the access available.</p><h3>Industrial protocols and data integration</h3><p>Our expertise covers Modbus, OPC UA, MQTT, and SNMP, alongside Kafka streaming and API integration. We connect industrial equipment and building systems to data pipelines, monitoring, and reporting using the interfaces your installation supports.</p><h3>What a project can include</h3><ul class="service-detail-list"><li>A scoped connection between available BMS data sources and your chosen data platform.</li><li>Transformations for timestamps, units, equipment identifiers, and missing readings.</li><li>Scheduled collection, validation, and clear handling of failed transfers.</li><li>Reporting-ready tables and Power BI views for energy and equipment trends.</li></ul></div>
+                <article class="story-card service-example"><p class="eyebrow">A practical example</p><h2>From isolated readings to an energy view</h2><p>For example, a facilities team could combine meter readings, HVAC operating data, and site information in one reporting model. A pipeline aligns timestamps and units so the team can compare trends across buildings and investigate unusual consumption. This is an example of a possible workflow; the scope depends on your systems.</p><h3>Planning your project</h3><p>Tell us which BMS you use, how data can be accessed, the buildings or equipment involved, and the decisions the report should support. We can start with one site or a limited set of signals before extending the integration.</p></article>
+            </div>
+        </section>
+        <section class="story-section story-last" aria-labelledby="questions-title">
+            <div class="container service-detail-grid">
+                <div class="service-faq"><h2 id="questions-title">Useful questions</h2><details><summary>Does this require replacing our BMS?</summary><p>The starting point is your existing environment. We assess the data access it supports and agree on an integration approach. Some installations may require a vendor-provided interface or gateway.</p></details>
+<details><summary>Can BMS data feed Power BI or a data lake?</summary><p>Yes, when a supported source connection is available. We can structure the collected data for a data lake, database, or reporting model, with refresh intervals matched to the source and your needs.</p></details></div>
+                <aside class="service-related" aria-labelledby="related-title"><p class="eyebrow">Bring the pieces together</p><h2 id="related-title">Related services</h2><ul><li><a class="story-text-link" href="etl-data-pipelines.html">ETL and data pipelines <span aria-hidden="true">→</span></a></li><li><a class="story-text-link" href="power-bi-consulting.html">Power BI reporting <span aria-hidden="true">→</span></a></li></ul><p class="service-reference">Technology reference: <a href="https://reference.opcfoundation.org/specs/OPC-30030/full">OPC Foundation: OPC UA for BACnet</a>.</p></aside>
+            </div>
+        </section>
+    </main>
+    <!-- include:site-footer -->
+    <script src="script.js"></script>
+</body>
+</html>

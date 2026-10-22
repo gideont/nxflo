@@ -70,6 +70,21 @@ Requirements:
 - When changing the header, logo sizing, navigation, or shared header styles, inspect all pages and verify desktop and mobile consistency before finishing.
 - Verify menu alignment with native desktop scrollbars visible, including taller windows where Contact fits but other pages scroll. Preserve the shared stable scrollbar gutter; hidden scrollbars can mask navigation shifts. `tests/check_navigation.py` checks this regression.
 
+## Shared Footer
+
+The footer must be consistent across Home, About, Services, Contact, and utility pages.
+
+- Keep the footer markup in `lib/footer.html` and include it exactly once in every root HTML page with `<!-- include:site-footer -->`. Do not copy footer markup into individual pages.
+- `lib/site.py` expands the footer for both the build and preview server, alongside the shared header.
+- Use three desktop columns for company information, navigation, and Vancouver/international positioning with contact details. Stack the sections on mobile.
+- Include the company description, Vancouver-based international positioning, email, phone, and LinkedIn on every page.
+- Keep the Vancouver skyline graphic from `images/vancouver-sketch.svg` in a separate area above the legal row, without covering text.
+- Keep the company/legal row at the bottom, including Vancouver, BC, Canada and BC Incorporation No. BC1535270. Use a subtle divider, smaller muted text, and graceful mobile wrapping.
+- Keep the email link as `mailto:sales@nxflo.com` and the phone link as `tel:+16042609218`, displaying `+1 (604) 260-9218`.
+- Define footer styles in `styles.css`. Do not add page-specific footer, logo, color, or spacing overrides.
+- Preserve semantic footer/navigation/address elements, visible keyboard focus, and readable text. Keep footer links compact on desktop, with touch targets of at least 44px on mobile and touch devices.
+- Verify identical footer content and layout at the same desktop and mobile widths, with no horizontal overflow down to 320px.
+
 ## Before Finishing
 For every UI change:
 1. Check desktop layout.
@@ -78,6 +93,7 @@ For every UI change:
 4. Check that navigation and interactive elements still work.
 5. If the header or navigation changed, compare every page at the same desktop and mobile widths, check all menu links, and confirm the correct active-page indicator.
 6. Do not consider the task complete until both layouts are usable.
+7. When changing the shared footer, compare it across every page and verify the email, phone, navigation, and Vancouver artwork.
 
 ## Existing Site
 Preserve the existing Nexusflow visual identity unless specifically asked to redesign it.
