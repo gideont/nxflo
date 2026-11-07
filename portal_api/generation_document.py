@@ -67,9 +67,14 @@ def assemble(config,state):
             from .generation_finance import FORMULAS
             if formula in FORMULAS:body+='<p class="registered-formula"><code>'+e(FORMULAS[formula])+'</code></p>'
         body+=worked_examples({**state,'config':config},i)
+        if 'publication_assets' in state:
+            from .generation_publication import render_asset,render_calculation
+            body+=''.join(render_asset(asset) for asset in state['publication_assets'] if asset['chapter']==i)
+            body+=''.join(render_calculation(calc) for calc in state.get('publication_calculations',[]) if calc['chapter']==i)
         for chart in state.get('charts',[]):
             if chart.get('classification')=='hypothetical':
-                if chart.get('in_chapter') and chart['chapter']==i:body+='<figure>'+chart['svg']+'<figcaption>'+e(chart['caption'])+'</figcaption></figure>'
+                duplicate=any(asset['chapter']==i and asset.get('recipe')==chart.get('recipe') and asset.get('group_id')==chart.get('group_id') for asset in state.get('publication_assets',[]) if asset['kind']=='chart')
+                if not duplicate and chart.get('in_chapter') and chart['chapter']==i:body+='<figure>'+chart['svg']+'<figcaption>'+e(chart['caption'])+'</figcaption></figure>'
                 continue
             if chart['chapter']==i:body+='<figure>'+chart['svg']+'<figcaption>'+e(chart['caption'])+'</figcaption></figure>'
         if config['images'] and i<len(config['illustrations']):body+='<figure><img src="'+config['illustrations'][i]+'" alt="Supporting image '+str(i+1)+'"></figure>'
@@ -84,6 +89,9 @@ def assemble(config,state):
         body=body.replace('Prepared with AI assistance. Review facts, quotations and recommendations before distribution. Source availability and editorial limitations are recorded below.', 'Prepared with AI assistance from the author’s original material. Empirical evidence is cited separately; illustrative financial scenarios are explicitly labeled and calculated from their stated assumptions.')
     from .generation_layout import REPORT_CSS
     css=REPORT_CSS
+    if 'publication_assets' in state:
+        from .generation_publication import ASSET_CSS
+        css+=ASSET_CSS
     running='<div class="running-header">'+e(company)+' · '+e(config['report_type'])+'</div><div class="running-footer">Version '+e(config['version'] or '1.0')+' · '+e(date)+'</div>'
     return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+e(title)+'</title><style>:root{--theme:'+config['color']+';--accent:'+config['accent']+'}'+css+'</style></head><body data-theme="report" data-document-engine="folio">'+running+'<main><header class="cover">'+cover+'</header>'+toc+body+'<footer>'+e(company)+' · v'+e(config['version'] or '1.0')+'</footer></main></body></html>'
 

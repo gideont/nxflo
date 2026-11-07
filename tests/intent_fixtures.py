@@ -100,9 +100,14 @@ class FixtureModels(Models):
             proofs={proof['author_ref']:proof['text_excerpt'] for ch in doc['chapters'] for proof in ch['coverage']}
             sections={key:ch['paragraphs'][0] for ch in doc['chapters'] for key in ch['section_keys']}
             value={'checks':[]}
+            blocks=json.JSONDecoder().raw_decode(prompt.split('\nPublication blocks: ',1)[1])[0] if stage=='publication-quality-assets-v2' else None
             for criterion in ids:
                 evidence=proofs[criterion.split(':',1)[1]] if criterion.startswith('author:') else sections[criterion.split(':',1)[1]] if criterion.startswith('section:') else doc['chapters'][0]['paragraphs'][0]
                 value['checks'].append({'criterion':criterion,'passed':not(self.reject_publication and criterion=='purpose'),'evidence':evidence,'reason':'The original product vision and source distinctions are preserved.' if not self.reject_publication else 'The document has become an academic research report rather than a product concept.'})
+                if blocks is not None:
+                    ids=[key for key,block in blocks.items() if evidence in block['text']]
+                    value['checks'][-1]['evidence_blocks']=ids[:1] or [next(iter(blocks))]
+                    value['checks'][-1].pop('evidence',None)
         else:
             value=deepcopy(manuscript()['chapters'][index])
             if self.bad_stage and (stage==self.bad_stage or stage.startswith('intent-repair-')):

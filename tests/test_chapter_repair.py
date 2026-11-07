@@ -24,6 +24,7 @@ class ChapterRepairTests(unittest.TestCase):
                     if kind=='alias':value['formula_refs']=['net_cash_flow']
                     elif kind=='unknown':value['formula_refs']=['invented_return_formula']
                     elif kind=='malformed':value['tables']=None
+                    elif kind=='chart':value['charts']=[{'kind':'bar','title':'Cash expenditure and labor','labels':['Cash','Labor','Combined'],'values':[1064,6000,7064],'unit':'USD','source_id':'youtube','evidence':[]}]
                     elif kind=='coverage':
                         value['paragraphs']=['An unrelated account of an academic report.'];value['claims']=[]
                         value['coverage'][0]['text_excerpt']='A paraphrase ... absent from the actual prose.'
@@ -90,6 +91,32 @@ class ChapterRepairTests(unittest.TestCase):
         fixed=normalize_chapter(value,contract,restore=True,assigned_refs=['A0','A1','A2'])
         self.assertEqual(fixed['paragraphs'],value['paragraphs']+[quotes[0]])
         self.assertEqual(fixed['coverage'],[{'author_ref':'A0','text_excerpt':quotes[0]}])
+
+    def test_calculator_owned_figures_survive_polishing_without_model_metadata(self):
+        models=self.models('chart');row=self.run_model(models)
+        self.assertEqual(row['status'],'awaiting_html_review',row['error'])
+        state=json.loads(row['state']);refs=state['document']['chapters'][1].get('calculated_chart_refs',[])
+        self.assertEqual(len(refs),1);self.assertEqual(refs[0]['recipe'],'labor_value')
+        html=(self.fixture.path.parent/'generated'/self.fixture.id/'document.html').read_text()
+        self.assertIn('Cash expenditure and contributed labor',html)
+
+    def test_figure_ownership_survives_a_completed_polish_repair_on_resume(self):
+        base=self.models('chart')
+        class PolishModels(base):
+            def request(models,method,path,body=None):
+                response=super().request(method,path,body)
+                if models.requests[-1]=='polish:1':
+                    value=json.loads(response['choices'][0]['message']['content']);value['tables']=None
+                    response['choices'][0]['message']['content']=json.dumps(value)
+                return response
+        original=IntentPipeline.validate_chapters
+        def interrupted(pipeline,state,chapters,stage,repair=True):
+            if stage=='polish' and not repair:raise GenerationError('Simulated interruption after saved polish repair.')
+            return original(pipeline,state,chapters,stage,repair)
+        with patch.object(IntentPipeline,'validate_chapters',interrupted):self.assertEqual(self.run_model(PolishModels)['status'],'failed')
+        row=self.run_model(PolishModels);self.assertEqual(row['status'],'awaiting_html_review',row['error'])
+        self.assertEqual(len(json.loads(row['state'])['document']['chapters'][1]['calculated_chart_refs']),1)
+        self.assertEqual(PolishModels.requests.count('intent-repair-polish:1'),1)
 
     def test_invalid_durable_indices_never_submit_requests(self):
         engine=Engine(self.fixture.path,self.fixture.id,self.models('unknown'))

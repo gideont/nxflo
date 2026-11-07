@@ -113,7 +113,10 @@ def validate_publication_review(review,document,contract):
 
 
 def publication_fingerprint(state):
-    return digest({'document':state['document'],'contract':state['author_contract'],'financials':state.get('financials')})
+    payload={'document':state['document'],'contract':state['author_contract'],'financials':state.get('financials')}
+    if 'publication_assets' in state:
+        payload.update(publication_assets=state['publication_assets'],publication_calculations=state.get('publication_calculations',[]))
+    return digest(payload)
 
 
 def assert_publication(state,html=None):

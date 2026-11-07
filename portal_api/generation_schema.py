@@ -10,6 +10,8 @@ def response_schema(stage,config):
     if config.get('_pipeline_version')==2:
         from .generation_v2_schema import schema
         structured=schema(stage)
+        if structured and stage=='publication-quality-assets-v2' and config.get('_publication_block_ids'):
+            structured['properties']['checks']['items']['properties']['evidence_blocks']['items']={'type':'string','enum':config['_publication_block_ids']}
         if structured:return {'type':'json_schema','json_schema':{'name':'intent_document','strict':True,'schema':structured}}
     if stage=='outline':
         count=max(2,min(12,(config['pages']+2)//3)) if config['length_mode']=='target' else None

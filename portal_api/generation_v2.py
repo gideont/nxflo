@@ -149,6 +149,15 @@ class IntentPipeline:
             for index in range(len(chapters)):
                 saved=self.models.saved_candidate('intent-repair-'+stage,index)
                 if saved is not None:chapters[index]=saved;prior_repairs.add(index)
+        previous=s.get('document',{}).get('chapters',[])
+        if stage!='draft':
+            for index,ch in enumerate(chapters):
+                if not isinstance(ch,dict) or index>=len(previous):continue
+                refs=ch.get('calculated_chart_refs',[])
+                if not isinstance(refs,list):continue
+                for ref in previous[index].get('calculated_chart_refs',[]):
+                    if ref not in refs:refs.append(ref)
+                if refs:ch={**ch,'calculated_chart_refs':refs};chapters[index]=ch
         chapters=[normalize_chapter(ch,s['author_contract'],restore=(index in prior_repairs or not repair),assigned_refs=plans[index]['author_refs']) for index,ch in enumerate(chapters)]
         from .generation_calculated_charts import route_calculated_charts,render_reference
         chapters=route_calculated_charts(chapters,s.get('financials'),s['author_original']);document={'chapters':chapters}
@@ -249,6 +258,11 @@ class IntentPipeline:
         if errors:
             self.e.checkpoint({**s,'quality_errors':errors})
             raise GenerationError('Publication-quality gate rejected the manuscript: '+' '.join(errors[:8]))
+        from .generation_publication import publication_assets,review_blocks,validate_bound_review
+        assets,calculations=publication_assets(s)
+        s={**s,'publication_assets':assets,'publication_calculations':calculations}
+        self.e.checkpoint(s)
+        blocks=review_blocks(s)
         all_criteria=criteria(s['author_contract'])
         prompts=[]
         for offset in range(0,len(all_criteria),24):
@@ -260,24 +274,29 @@ class IntentPipeline:
                 'Formulas: ensure the prose is consistent with the calculator, no double-counted costs, cash financing is not revenue, opportunity costs are separate, and projections are explicitly hypothetical rather than guaranteed or observed. '
                 'Purpose: the document must communicate this author\'s intended message in the selected genre; reject an academic cautionary report substituted for a product concept. '
                 'Publication: reject unfinished placeholders, leaked editorial instructions, missing worked examples or substantive drift. Do not require repetitive disclaimers. '
-                'Return JSON {"checks":[{"criterion":"exact criterion ID","passed":true,"evidence":"verbatim substantive passage from the manuscript","reason":"assessment"}]}. '
-                '\nManuscript: '+json.dumps(s['document'])+'\nCalculated hypothetical models: '+json.dumps(s.get('financials')))
+                'The publication includes the rendered figures and registered calculations in the supplied publication blocks, not just the prose. '
+                'Inspect those assets before claiming a figure or worked calculation is absent. Distinguish return on initial investment from return on total cash expenditure and modeled economic benefit; these are explicitly different denominators, not contradictory formulas. '
+                'Return JSON {"checks":[{"criterion":"exact criterion ID","passed":true,"evidence_blocks":["valid publication block ID"],"reason":"assessment"}]}. '
+                'Cite existing publication block IDs, never invent quotations or certify missing work. Reject actual unsupported claims, contradictions or absent required content. '
+                '\nManuscript: '+json.dumps(s['document'])+'\nCalculated hypothetical models: '+json.dumps(s.get('financials'))+'\nPublication blocks: '+json.dumps(blocks))
             if len(prompt)>300000:raise GenerationError('The manuscript exceeds the publication-review context budget. Split it into smaller documents.')
             prompts.append(prompt)
-        reviews=self.models.many('polish',prompts,'publication-quality')
+        self.config['_publication_block_ids']=sorted(blocks)
+        try:reviews=self.models.many('polish',prompts,'publication-quality-assets-v2')
+        finally:self.config.pop('_publication_block_ids',None)
         if any(not isinstance(result,dict) or not isinstance(result.get('checks'),list) for result in reviews):raise GenerationError('Malformed publication review response.')
         review={'checks':[check for result in reviews for check in result['checks']]}
-        failures=validate_publication_review(review,s['document'],s['author_contract'])
+        failures,bound_checks=validate_bound_review(review,s,blocks)
         if failures:
             self.e.checkpoint({**s,'quality_errors':failures,'publication_review':review})
             raise GenerationError('Publication-quality gate rejected the manuscript: '+' '.join(failures[:8]))
-        gate={'passed':True,'fingerprint':publication_fingerprint(s),'checks':review['checks']}
+        gate={'passed':True,'fingerprint':publication_fingerprint(s),'checks':bound_checks}
         html=assemble(self.config,{**s,'publication_quality':gate})
         gate['html_hash']=digest(html)
         self.e.directory.mkdir(parents=True,exist_ok=True)
         temporary=self.e.directory/'document.tmp.html';temporary.write_text(html);temporary.replace(self.e.directory/'document.html')
         (self.e.directory/'sources.json').write_text(json.dumps(s['sources'],ensure_ascii=False))
-        return {'publication_quality':gate,'quality_errors':[],'intent_audits':s['intent_audits']+[{'stage':'publication','passed':True,'manuscript_hash':digest(s['document'])}]}
+        return {'publication_assets':assets,'publication_calculations':calculations,'publication_quality':gate,'quality_errors':[],'intent_audits':s['intent_audits']+[{'stage':'publication','passed':True,'manuscript_hash':digest(s['document'])}]}
 
     def html_review(self,s):
         assert_publication(s,(self.e.directory/'document.html').read_text())
