@@ -52,10 +52,44 @@ def source_chunks(text, size=16000):
 
 
 def locate(quote, text):
+    """Locate source text; tolerate presentation differences, never wording or numbers."""
     if not isinstance(quote,str) or len(quote.strip())<8:return None
-    pattern=r'\s+'.join(re.escape(word) for word in quote.split())
-    match=re.search(pattern,text)
-    return (match.start(),match.end()) if match else None
+    def find(value,flags=0):
+        pattern=r'\s+'.join(re.escape(word) for word in value.split())
+        for match in re.finditer(pattern,text,flags):
+            start,end=match.span()
+            # A quote must not match only part of a word or financial number.
+            if value[0].isalnum() and start and text[start-1].isalnum():continue
+            if value[-1].isalnum() and end<len(text) and text[end].isalnum():continue
+            if value[-1].isdigit() and re.match(r'[.,]\d',text[end:]):continue
+            if value.endswith('.') and len(value)>1 and value[-2].isdigit() and end<len(text) and text[end].isdigit():continue
+            return start,end
+        return None
+    quote=quote.strip()
+    exact=find(quote)
+    if exact:return exact
+    # Models often sentence-case a heading and add its final full stop. The
+    # returned span always contains the original capitalization/punctuation.
+    value=quote[:-1] if quote.endswith('.') else quote
+    found=find(value,re.IGNORECASE)
+    if found:
+        start,end=found
+        if end<len(text) and text[end] in '.!?':end+=1
+        return start,end
+    return None
+
+
+def narrative_headings(structure):
+    """Prefer numbered body sections over subordinate figures/editorial headings."""
+    numbered=[entry for entry in structure if re.match(r'^\d+[.)]\s+',entry['title'])]
+    if len(numbered)>=2:
+        level=min(entry['level'] for entry in numbered)
+        return [entry for entry in numbered if entry['level']==level]
+    levels=[entry['level'] for entry in structure]
+    if not levels:return []
+    primary=min(levels)
+    if levels.count(primary)==1 and any(level>primary for level in levels):primary=min(level for level in levels if level>primary)
+    return [entry for entry in structure if entry['level']==primary]
 
 
 def extraction_prompt(chunk,mode):
@@ -83,8 +117,8 @@ def build_contract(config,parts,extractions):
         structure.append({'id':'H'+str(len(structure)+1),'title':title,'level':len(match.group(0).split()[0]),'start':match.start(),'end':match.end()})
     if not any(item['role']=='thesis' for item in items):raise GenerationError('The author\'s thesis was not extracted. No document will be drafted without it.')
     if len(items)>300 or len(structure)>300:raise GenerationError('The author contract is too large for a faithful single document. Split the brief into documents.')
-    return {'version':1,'mode':mode,'source_hash':digest(text),'source_length':len(text),'items':items,'structure':structure,
-            'required_sections':PRODUCT_SECTIONS if mode=='product_concept' else ['research_question','evidence','analysis','conclusions'] if mode=='research_report' else ['problem','architecture','implementation','worked_examples','tradeoffs'] if mode=='technical_paper' else [entry['id'] for entry in structure if entry['level']==(2 if any(e['level']==2 for e in structure) else 1)],
+    return {'version':2,'mode':mode,'source_hash':digest(text),'source_length':len(text),'items':items,'structure':structure,'narrative_structure':narrative_headings(structure),
+            'required_sections':PRODUCT_SECTIONS if mode=='product_concept' else ['research_question','evidence','analysis','conclusions'] if mode=='research_report' else ['problem','architecture','implementation','worked_examples','tradeoffs'] if mode=='technical_paper' else [entry['id'] for entry in narrative_headings(structure)],
             'financial_examples':bool(re.search(r'investment|financial|FP&A|cash flow|NPV|IRR',text,re.I)) and (mode=='product_concept' or bool(re.search(r'hypothetical|worked example',text,re.I)))}
 
 
@@ -146,10 +180,11 @@ def fidelity_issues(document,contract,plans=None):
             for ref in set(plans[i].get('author_refs',[]))-found:issues.append('Chapter '+str(i+1)+' lost author anchor '+ref+'.')
     for ref in set(known)-covered:issues.append('The manuscript lost original author anchor '+ref+' ('+known[ref]['label']+').')
     if contract['mode']=='content_preserving_rewrite':
-        headings=[entry['title'] for entry in contract['structure'] if entry['level']==(2 if any(e['level']==2 for e in contract['structure']) else 1)]
+        headings=[entry['title'] for entry in contract.get('narrative_structure',[]) ] if 'narrative_structure' in contract else [entry['title'] for entry in contract['structure'] if entry['level']==(2 if any(e['level']==2 for e in contract['structure']) else 1)]
         if headings:
             actual=' '.join(ch.get('title','') for ch in chapters).casefold()
-            positions=[actual.find(re.sub(r'^\d+[. ]*','',heading).casefold()) for heading in headings if heading and len(heading)>12]
+            matches=[locate(re.sub(r'^\d+[. ]*','',heading),actual) for heading in headings if heading and len(heading)>12]
+            positions=[match[0] if match else -1 for match in matches]
             if any(position<0 for position in positions) or positions!=sorted(positions):issues.append('The content-preserving rewrite changed the author\'s heading sequence.')
     return list(dict.fromkeys(issues))
 
