@@ -37,19 +37,26 @@ def check():
                     page.locator('#admin-workspace').wait_for(state='visible')
                     page.locator('#generator-tab').click()
                     page.wait_for_function("document.querySelector('#generator-save-state').textContent!=='Not loaded'")
+                    page.locator('#generator-html-review').wait_for(state='visible')
+                    assert not page.locator('#generator-configuration').evaluate('el=>el.open')
+                    page.locator('#generator-configuration>summary').click()
                     page.locator('[name=document_intent]').select_option('product_concept')
                     assert page.locator('[name=report_type]').input_value()=='White paper'
                     page.locator('[name=topic]').fill('Preserve this authorial product vision.')
                     page.locator('#generator-save').click()
                     page.wait_for_function("document.querySelector('#generator-save-state').textContent==='Saved'")
                     page.reload();page.wait_for_function("document.querySelector('#generator-save-state').textContent!=='Not loaded'")
+                    page.locator('#generator-html-review').wait_for(state='visible')
                     assert page.locator('[name=document_intent]').input_value()=='product_concept'
-                    if width==1440:
-                        page.locator('#generator-documents').set_input_files({'name':'author-notes.txt','mimeType':'text/plain','buffer':b'Author material about the reusable calculation engine.'})
-                        role=page.locator('.generator-source-role').first;role.wait_for(state='visible');assert role.input_value()=='author'
-                        role.select_option('reference');page.locator('#generator-save').click()
-                        page.wait_for_function("document.querySelector('#generator-save-state').textContent==='Saved'")
-                    else:assert page.locator('.generator-source-role').first.input_value()=='reference'
+                    assert page.locator('[name=youtube],#generator-documents,[name=web_search],[name=web_budget_usd]').count()==0
+                    page.locator('#generator-configuration>summary').click()
+                    page.locator('#generator-version-settings>summary').click()
+                    assert page.locator('[name=version]').get_attribute('readonly') is not None
+                    assert page.locator('[name=version]').input_value()=='1.0'
+                    page.locator('[name=version_override]').check();page.locator('[name=version]').fill('4.2')
+                    page.locator('#generator-save').click();page.wait_for_function("document.querySelector('#generator-save-state').textContent==='Saved'")
+                    page.locator('[name=version_override]').uncheck();assert page.locator('[name=version]').input_value()=='1.0'
+                    page.locator('#generator-configuration>summary').click()
                     page.locator('#generator-html-review').wait_for(state='visible')
                     page.locator('#generator-html-frame').scroll_into_view_if_needed()
                     frame=page.frame_locator('#generator-html-frame')
@@ -63,7 +70,7 @@ def check():
                     assert 'Preserve intent' in page.locator('[data-step=summarize] strong').inner_text()
                     assert page.locator('[data-step=html_review] #generator-review-jump').is_visible()
                     if width in (1440,375):
-                        page.locator('[name=document_intent]').scroll_into_view_if_needed();page.screenshot(path='/tmp/nxflo-intent-ui-'+str(width)+'.png')
+                        page.locator('#generator-workflow').scroll_into_view_if_needed();page.screenshot(path='/tmp/nxflo-intent-ui-'+str(width)+'.png')
                         # Standalone source uses the same authenticated document and CSS.
                         paper=ctx.new_page();paper.goto(origin+'/bms_integration_hub/api/admin/generator/jobs/'+fixture.id+'/download/html?view=1')
                         paper.locator('.worked-financials h3').scroll_into_view_if_needed();paper.screenshot(path='/tmp/nxflo-intent-paper-'+str(width)+'.png')
@@ -85,8 +92,10 @@ def check():
                     page.reload()
                     resume=page.locator('[data-step=outline][data-state=failed] #generator-resume')
                     resume.wait_for(state='visible');resume.scroll_into_view_if_needed()
-                    button_box=resume.bounding_box();copy_box=page.locator('[data-step=outline] .generator-step-copy').bounding_box()
-                    assert button_box['x']>=copy_box['x']+copy_box['width']-1,(width,button_box,copy_box)
+                    button_box=resume.bounding_box();name_box=page.locator('[data-step=outline] strong').bounding_box()
+                    assert button_box['x']>=name_box['x']+name_box['width']-1,(width,button_box,name_box)
+                    assert abs(button_box['y']-name_box['y'])<3,(width,button_box,name_box)
+                    assert not page.locator('#generator-configuration').evaluate('el=>el.open')
                     assert page.locator('[data-step=outline] strong').evaluate('el=>el.scrollWidth<=el.clientWidth'),width
                     assert button_box['height']>=44
                     assert page.locator('#generator-resume').count()==1
@@ -101,6 +110,6 @@ def check():
                 browser.close()
         finally:server.shutdown()
     finally:fixture.tearDown()
-    print('Intent selection, author/reference roles, financial tables and 14 real figures passed at 1440/375/320/430px with no overflow.')
+    print('Collapsed configuration, automatic version override, inline Resume, financial tables and 14 real figures passed at 1440/375/320/430px with no overflow.')
 
 if __name__=='__main__':check()

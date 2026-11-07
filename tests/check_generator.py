@@ -51,10 +51,7 @@ def check(widths=(1440,375,320,430)):
                     if width==1440: assert page.locator('#generator-advanced-models').is_hidden()
                     else: page.locator('[name=advanced_models]').uncheck()
                     assert page.locator('#generator-advanced-models').is_hidden()
-                    assert page.locator('[name=web_budget_usd]').input_value() in ('0.3','0.30')
-                    assert page.locator('[name=web_budget_usd]').get_attribute('max')=='0.30'
-                    page.locator('[name=web_budget_usd]').fill('0.31');assert page.locator('#generator-start').is_disabled()
-                    page.locator('[name=web_budget_usd]').fill('0.30')
+                    assert page.locator('[name=web_budget_usd],#generator-documents,[name=youtube]').count()==0
                     assert page.locator('#generator-price-matrix tr').count()>=5
                     assert page.locator('option[value$=":batch"]').count()==0
                     assert page.locator('.generator-step-copy strong').evaluate_all("labels=>labels.every(label=>label.getBoundingClientRect().height < parseFloat(getComputedStyle(label).lineHeight)*1.5 && label.scrollWidth<=label.clientWidth+1 && label.getBoundingClientRect().right<=label.parentElement.getBoundingClientRect().right+1)"),'Workflow step wraps or overflows'
@@ -102,8 +99,7 @@ def check(widths=(1440,375,320,430)):
                     assert page.locator('[name=databricks_model]').input_value()=='system.ai.claude-haiku-5-5'
                     assert page.locator('#generator-common-model').is_hidden()
                     assert page.locator('#generator-advanced-models').is_hidden()
-                    assert page.locator('[name=web_search]').is_disabled()
-                    assert not page.locator('[name=web_search]').is_checked()
+                    assert page.locator('[name=web_search]').count()==0
                     assert page.locator('#generator-cost-total').inner_text()=='Workspace billing'
                     assert page.locator('#generator-price-matrix tr').count()==1
                     assert not page.evaluate('document.documentElement.scrollWidth>innerWidth'),'Databricks provider overflow'
@@ -113,7 +109,7 @@ def check(widths=(1440,375,320,430)):
                     page.reload();page.wait_for_function("document.querySelector('#generator-save-state').textContent!=='Not loaded'")
                     assert page.locator('#generator-provider').input_value()=='databricks'
                     page.locator('#generator-provider').select_option('openrouter')
-                    page.locator('[name=web_search]').check()
+                    assert page.locator('[name=web_search]').count()==0
                     assert page.locator('#generator-preview').count()==0
                     page.on('dialog',lambda dialog:dialog.accept())
                     if width==1440:
@@ -194,6 +190,11 @@ def check(widths=(1440,375,320,430)):
                     elapsed_before=page.locator('#generator-elapsed').inner_text()
                     page.wait_for_function('before=>document.querySelector("#generator-elapsed").textContent!==before',arg=elapsed_before)
                     assert page.locator('.generator-layout.is-running').count()==1
+                    assert not page.locator('#generator-configuration').evaluate('el=>el.open')
+                    page.locator('#generator-configuration>summary').click()
+                    page.wait_for_timeout(2300)
+                    assert page.locator('#generator-configuration').evaluate('el=>el.open'),'Polling collapsed an explicitly reopened configuration'
+                    page.locator('#generator-configuration>summary').click()
                     assert page.locator('#generator-start').is_disabled()
                     assert not page.evaluate('document.documentElement.scrollWidth>innerWidth'),'Active job overflow'
                     events=[{'step':'collect','status':'complete'},{'step':'summarize','status':'started','at':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime(time.time()-12))}]
@@ -237,7 +238,7 @@ def check(widths=(1440,375,320,430)):
                     assert connection.execute('SELECT count(*) FROM generator_calls WHERE job_id=?',(job,)).fetchone()[0]==1
                     job_count=connection.execute('SELECT count(*) FROM generator_jobs').fetchone()[0]
                     connection.execute("UPDATE generator_jobs SET status='failed',error='Temporary fixture failure',message='Saved progress can resume' WHERE id=?",(job,))
-                    page.wait_for_function("document.querySelector('#generator-resume').textContent==='Resume generation'")
+                    page.wait_for_function("document.querySelector('#generator-resume').textContent==='Resume'")
                     assert 'saved progress' in page.locator('#generator-recovery-status').inner_text()
                     assert not page.evaluate('document.documentElement.scrollWidth>innerWidth'),'Resume controls overflow'
                     if width in (1440,375):page.locator('#generator-workflow').screenshot(path='/tmp/nxflo-generator-resume-'+str(width)+'.png')
@@ -310,7 +311,9 @@ def check(widths=(1440,375,320,430)):
                     page.locator('[name=feedback]').fill('Expand the recommendations with a clear measurement plan.')
                     page.locator('[name=change_summary]').fill('Expanded the measurement recommendations.')
                     page.locator('#generator-save').click();page.wait_for_function("document.querySelector('#generator-save-state').textContent==='Saved'")
-                    page.reload();page.locator('#generator-revision').wait_for(state='visible')
+                    page.reload();page.wait_for_function("document.querySelector('#generator-save-state').textContent!=='Not loaded'")
+                    page.locator('#generator-configuration').evaluate('el=>el.open=true')
+                    page.locator('#generator-revision').wait_for(state='visible')
                     assert page.locator('[name=feedback]').input_value()=='Expand the recommendations with a clear measurement plan.'
                     assert page.locator('[name=version]').get_attribute('readonly') is not None
                     page.locator('#generator-start').click()
@@ -341,6 +344,8 @@ def check(widths=(1440,375,320,430)):
                     page.reload();page.wait_for_function("document.querySelector('#generator-save-state').textContent!=='Not loaded'")
                     assert page.locator('[name=topic]').input_value()==''
                     assert page.locator('[name=company]').input_value()=='Preserved Nexusflow Inc.'
+                    page.locator('#generator-result').wait_for(state='visible')
+                    page.locator('#generator-configuration').evaluate('el=>el.open=true')
                     assert page.locator('#generator-logo-preview').is_visible()
                     assert page.locator('[name=website]').input_value()=='https://www.nxflo.com'
                     assert page.locator('[name=prepared_team]').input_value()=='research'

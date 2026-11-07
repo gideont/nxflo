@@ -21,7 +21,7 @@ DEFAULTS = dict(provider='openrouter',databricks_model='',company='Nexusflow Inc
     teams=[{'id':'research','name':'Research Team at Nexusflow Inc.','email':'research@nxflo.com'}],
     feedback='', change_summary='', revision_parent='', title='', topic='', report_type='Research report', document_intent='content_preserving_rewrite', logo='', pages=12,
     length_mode='content', toc=True, charts=True, images=True, graphics=True, color='#315e55', accent='#b97a44',
-    credits='Nexusflow', release_date='', version='1.0', questions='', youtube='', web_search=True, web_budget_usd=0.30,
+    credits='Nexusflow', release_date='', version='1.0', version_override=False, questions='', youtube='', web_search=True, web_budget_usd=0.30,
     summary_model='openai/gpt-6-luna', draft_model='openai/gpt-6-luna',
     polish_model='openai/gpt-6-luna', summary_service='flex', draft_service='flex', polish_service='flex', advanced_models=False, review_passes=3, cost_pages=12, documents=[], illustrations=[])
 
@@ -70,7 +70,7 @@ def validate(data, Error):
     for key in ('summary_service','draft_service','polish_service'):
         if result[key] not in ('default','flex'): raise Error('Invalid processing mode')
         if result[key]=='flex' and result[key.replace('_service','_model')]!='openai/gpt-6-luna': raise Error('Flex is available for GPT-6 Luna; select default processing for other models')
-    for key in ('toc', 'charts', 'images', 'graphics', 'web_search'):
+    for key in ('toc', 'charts', 'images', 'graphics', 'web_search', 'version_override'):
         if type(result[key]) is not bool: raise Error('Invalid option')
     if type(result['pages']) is not int or not 1 <= result['pages'] <= 60: raise Error('Choose 1–60 target pages')
     if type(result['review_passes']) is not int or result['review_passes'] not in (1,2,3,4): raise Error('Choose 1–4 review passes')
@@ -234,6 +234,8 @@ def register_generator(app, conn, login_required, Error):
         with db.transaction(conn()):
             if conn().execute("SELECT 1 FROM generator_jobs WHERE status IN ('queued','running')").fetchone(): raise Error('A document is already generating. Wait for it to finish.',409)
             history=prepare_revision(conn(),parent,config,Error) if parent else []
+            if not parent and not config['version_override']:config['version']='1.0'
+            if config['version_override'] and not config['version']:raise Error('Enter a version or turn off the version override')
             if not config['version']:config['version']='1.0'
             summary=config['change_summary'] or ('Revised following editorial review and feedback.' if parent else 'Initial issue.')
             history.append(history_entry(config,created_at,summary))

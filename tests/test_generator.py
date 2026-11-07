@@ -267,6 +267,30 @@ class GeneratorTests(unittest.TestCase):
         branch=self.owner.post(BASE+'/jobs',json={'config':cfg},headers=self.headers)
         self.assertEqual(branch.json['version'],'1.3','Revising an older PDF must not duplicate an existing version')
         self.assertEqual(self.owner.get(BASE+'/jobs/'+parent).json['config']['version'],'1.0')
+    def test_new_document_starts_at_one_unless_override_is_deliberate(self):
+        response=self.owner.post(BASE+'/jobs',json={'config':{**self.config,'version':'9.8'}},headers=self.headers)
+        self.assertEqual(response.json['version'],'1.0');self.complete(response.json['id'])
+        response=self.owner.post(BASE+'/jobs',json={'config':{**self.config,'version':'1.9','version_override':True}},headers=self.headers)
+        self.assertEqual(response.status_code,202,response.json);self.assertEqual(response.json['version'],'1.9')
+        self.complete(response.json['id'])
+        revision=self.owner.post(BASE+'/jobs',json={'config':{**self.config,'revision_parent':response.json['id']}},headers=self.headers)
+        self.assertEqual(revision.json['version'],'2.0')
+
+    def test_deliberate_revision_override_is_recorded_and_cannot_duplicate_a_version(self):
+        parent=self.owner.post(BASE+'/jobs',json={'config':self.config},headers=self.headers).json['id'];self.complete(parent)
+        config={**self.config,'revision_parent':parent,'version_override':True,'version':'2.5','change_summary':'Author-approved corrected edition.'}
+        revision=self.owner.post(BASE+'/jobs',json={'config':config},headers=self.headers)
+        self.assertEqual(revision.status_code,202,revision.json);self.assertEqual(revision.json['version'],'2.5')
+        self.complete(revision.json['id'])
+        state=self.owner.get(BASE+'/jobs/'+revision.json['id']).json
+        with db.connect(self.path) as connection:
+            history=json.loads(connection.execute('SELECT state FROM generator_jobs WHERE id=?',(revision.json['id'],)).fetchone()[0])['revision_history']
+        self.assertEqual([item['version'] for item in history],['1.0','2.5'])
+        duplicate=self.owner.post(BASE+'/jobs',json={'config':config},headers=self.headers)
+        self.assertEqual(duplicate.status_code,409)
+        config['version']=''
+        self.assertEqual(self.owner.post(BASE+'/jobs',json={'config':config},headers=self.headers).status_code,400)
+
     def test_revision_link_persists_in_saved_configuration(self):
         parent=self.owner.post(BASE+'/jobs',json={'config':self.config},headers=self.headers).json['id'];self.complete(parent)
         cfg={**self.config,'revision_parent':parent,'feedback':'Expand the conclusion.'}

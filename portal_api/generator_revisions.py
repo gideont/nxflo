@@ -1,14 +1,14 @@
 """Server-assigned revision numbers and immutable document-control histories."""
 from datetime import datetime
+from decimal import Decimal
 import json
 import re
 from zoneinfo import ZoneInfo
 
 
 def next_version(version):
-    if re.fullmatch(r'\d{1,6}(?:\.\d{1,6}){1,2}',version or ''):
-        parts=[int(part) for part in version.split('.')];parts[-1]+=1
-        return '.'.join(map(str,parts))
+    if re.fullmatch(r'\d{1,6}(?:\.\d{1,6})?',version or ''):
+        return format(Decimal(version)+Decimal('0.1'),'f')
     return '1.1'
 
 
@@ -37,9 +37,13 @@ def prepare_revision(connection,parent,config,Error):
         SELECT j.id,j.config FROM generator_jobs j JOIN family f ON j.parent_id=f.id)
         SELECT config FROM family''',(root,)).fetchall()
     versions=[json.loads(item['config']).get('version','1.0') for item in family]
-    numeric=[v for v in versions if re.fullmatch(r'\d{1,6}(?:\.\d{1,6}){1,2}',v)]
-    latest=max(numeric,key=lambda value:tuple(map(int,value.split('.')))) if numeric else '1.0'
-    config['version']=next_version(latest);config['revision_parent']=parent
+    numeric=[v for v in versions if re.fullmatch(r'\d{1,6}(?:\.\d{1,6})?',v)]
+    latest=max(numeric,key=Decimal) if numeric else '1.0'
+    if config.get('version_override'):
+        if not config['version']:raise Error('Enter a version or turn off the version override')
+        if config['version'] in versions:raise Error('This document version already exists. Choose a different override.',409)
+    else:config['version']=next_version(latest)
+    config['revision_parent']=parent
     history=state.get('revision_history')
     if history is None:
         history=[history_entry(json.loads(item['config']),item['created_at'],'Initial issue.' if not item['parent_id'] else 'Editorial revision.') for item in reversed(ancestors)]

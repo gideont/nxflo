@@ -136,6 +136,7 @@ class EngineTests(unittest.TestCase):
         self.assertTrue(all('Add a specific measurement recommendation.' in prompt and 'Operating findings' in prompt for prompt in captured))
         html=(self.path.parent/'generated'/revision/'document.html').read_text()
         self.assertIn('Document control and revision history',html)
+        if 'id="document-contact"' in html:self.assertLess(html.index('id="document-contact"'),html.index('id="document-control"'))
         self.assertIn('Expanded the measurement recommendations.',html)
         self.assertNotIn('Add a specific measurement recommendation.',html)
         self.assertIn('mailto:research@nxflo.com',html);self.assertIn('https://www.nxflo.com',html)

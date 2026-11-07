@@ -5,10 +5,11 @@
   const form = $('generator-form');
   const steps = [['collect','Collect sources'],['summarize','Summarize evidence'],['outline','Plan chapters & contents'],['draft','Draft chapters'],['review','Review evidence & gaps'],['rewrite','Refine the draft'],['polish','Final editorial polish'],['charts','Draw charts & graphs'],['assemble','Assemble the document'],['html_review','Preview HTML & continue'],['pdf','Export PDF'],['deliver','Ready for your review']];
   let csrf='', revision=0, config=null, configured=false, loaded=false, loading=false, active=null, pollTimer, saveTimer, saving=null, busy=false, uploading=0, parentId=null, defaults=null, watched=null, dirty=false;
-  const checks=['toc','charts','images','graphics','web_search','advanced_models'];
-  const numeric=['pages','review_passes','cost_pages','web_budget_usd'];
+  const checks=['toc','charts','images','graphics','advanced_models','version_override'];
+  const numeric=['pages','review_passes','cost_pages'];
   const defaultModels={summary_model:'openai/gpt-6-luna',draft_model:'openai/gpt-6-luna',polish_model:'openai/gpt-6-luna'};
-  const aiFields=['company','title','questions'];
+  const aiFields=['company','title'];
+  let focusedJob=null;
   let pricing=null,observedSources=null,matrixSignature='';
   let timedJob=null,timingReceived=0;
   let providerSettings={openrouter:{configured:false},databricks:{configured:false,model:''}};
@@ -25,13 +26,14 @@
   }
   const json = (method, body) => ({method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
   function values() {
-    const result={...config,revision_parent:parentId || ''};
+    const result={...config,revision_parent:parentId || '',youtube:'',documents:[],questions:'',web_search:false,web_budget_usd:0};
     for(const [key,value] of new FormData(form)) if(!assetKeys.includes(key)) result[key]=numeric.includes(key)?Number(value):value;
     for(const key of checks) result[key]=form.elements[key].checked;
     if(result.length_mode!=='target' && (!Number.isInteger(result.pages) || result.pages<1))result.pages=12;
     if(result.length_mode==='target' && (!Number.isInteger(result.cost_pages) || result.cost_pages<1))result.cost_pages=12;
     for(const [key,model] of Object.entries(defaultModels))result[key]=String(result[key] || model);
     for(const role of ['summary','draft','polish'])if(result[role+'_model']!=='openai/gpt-6-luna')result[role+'_service']='default';
+    if(!result.version_override && !parentId)result.version='1.0';
     if(result.provider==='databricks'){result.web_search=false;result.advanced_models=false;}
     return result;
   }
@@ -62,7 +64,7 @@
   }
   let inlineSourceKey='',inlineShown=20;
   function renderInlineSources() {
-    const sources=window.NxfloSources.extract(form.elements.topic.value,form.elements.youtube.value);
+    const sources=window.NxfloSources.extract(form.elements.topic.value,'');
     const links=[...sources.youtube.map(url=>({url,type:'YouTube'})),...sources.references.map(url=>({url,type:'Reference'}))];
     const key=JSON.stringify(links);if(key!==inlineSourceKey){inlineSourceKey=key;inlineShown=20;}
     $('generator-source-summary').textContent=`Detected sources: ${sources.youtube.length} YouTube · ${sources.references.length} other ${sources.references.length===1?'reference':'references'}`;
@@ -79,8 +81,7 @@
     configured=!!providerSettings[form.elements.provider.value]?.configured;
     $('generator-databricks-model').hidden=!databricks;$('generator-openrouter-model').hidden=databricks;$('generator-advanced-toggle').hidden=databricks;
     form.elements.databricks_model.required=databricks;form.elements.databricks_model.disabled=!databricks;
-    form.elements.web_search.disabled=databricks;form.elements.web_budget_usd.disabled=databricks;
-    if(databricks){form.elements.web_search.checked=false;form.elements.advanced_models.checked=false;}
+    if(databricks)form.elements.advanced_models.checked=false;
     $('generator-provider-status').textContent=(databricks?'Databricks':'OpenRouter')+(configured?' is configured. ':' is not configured on the server. ')+(databricks?'Generation and AI form filling use your configured model. Supplied references and YouTube transcripts are still collected; paid web discovery is disabled.':'Generation uses the selected models. AI form filling uses GPT-6 Luna Flex.');
     const advanced=form.elements.advanced_models.checked;
     $('generator-advanced-models').hidden=!advanced;$('generator-common-model').disabled=advanced;
@@ -109,9 +110,12 @@
     const valid=!invalid.length && loaded && configured && !busy && !uploading && !active;
     $('generator-start').disabled=!valid;
     $('generator-save').disabled=!loaded || busy || !!uploading || tooLong || !!form.querySelector('input[data-team-field]:invalid');
-    $('generator-revision').hidden=!parentId;form.elements.version.readOnly=!!parentId;
+    $('generator-revision').hidden=!parentId;form.elements.version.readOnly=!form.elements.version_override.checked;
+    if(!form.elements.version_override.checked && !parentId)form.elements.version.value='1.0';
+    $('generator-version-display').textContent=form.elements.version.value || '1.0';
+    $('generator-version-mode').textContent=form.elements.version_override.checked?'manual override':'automatic';
     if(parentId && !$('generator-revision-base').textContent)$('generator-revision-base').textContent='Your revision is linked to a previously generated document. Review feedback is saved automatically.';
-    $('generator-version-help').textContent=parentId?'Assigned automatically when you submit this revision.':'Initial version. Feedback revisions receive the next version automatically.';
+    $('generator-version-help').textContent=parentId?'The next available version adds 0.1. Expand and enable the override to assign a version yourself.':'Starts at 1.0. Each revision adds 0.1 automatically. Enable the override to assign a version yourself.';
     $('generator-start').firstChild.textContent=parentId?'Generate revision ':'Start generate ';
     $('generator-clear-form').disabled=!loaded || !defaults || busy || !!uploading;
     $('generator-fill-form').disabled=!loaded || !form.elements.topic.value.trim() || tooLong || busy || !!uploading || !!active;
@@ -192,14 +196,6 @@
     finally{$('generator-refresh-prices').disabled=false;}
   }
   function fileList() {
-    $('generator-document-list').replaceChildren(...config.documents.map((doc,i)=>{
-      const li=document.createElement('li'),name=document.createElement('span'),role=document.createElement('select');
-      li.className='generator-source-row';name.textContent=doc.name+' · '+doc.text.length.toLocaleString()+' characters';
-      role.className='generator-source-role';role.setAttribute('aria-label','Role for '+doc.name);
-      role.replaceChildren(new Option('Author material','author'),new Option('Reference evidence','reference'));role.value=doc.role || 'author';
-      role.addEventListener('change',()=>{doc.role=role.value;changed();});
-      li.append(name,role,button('Remove',()=>{config.documents.splice(i,1);fileList();changed();}));return li;
-    }));
     $('generator-image-list').replaceChildren(...config.illustrations.map((_,i)=>{
       const row=document.createElement('div'),name=document.createElement('span');name.textContent='Supporting image '+(i+1);row.append(name,button('Remove',()=>{config.illustrations.splice(i,1);fileList();changed();}));return row;
     }));
@@ -267,13 +263,14 @@
     const job=await request('/jobs/'+id);
     const completed=['ready','needs_review'].includes(job.status),teams=config.teams;
     const selected=teams.some(team=>team.id===job.config.prepared_team)?job.config.prepared_team:'';
-    populate({...job.config,teams,prepared_team:selected,revision_parent:completed?id:'',feedback:'',change_summary:''});history.replaceState(null,'','admin.html?job='+id);
-    const parts=job.config.version.match(/^(\d+(?:\.\d+)*)\.(\d+)$/);
-    if(completed)form.elements.version.value=parts?parts[1]+'.'+(Number(parts[2])+1):'1.1';
+    populate({...job.config,teams,prepared_team:selected,revision_parent:completed?id:'',feedback:'',change_summary:'',version_override:false});history.replaceState(null,'','admin.html?job='+id);
+    if(completed)form.elements.version.value=Number.isFinite(Number(job.config.version))?(Number(job.config.version)+0.1).toFixed(Math.max(1,(job.config.version.split('.')[1] || '').length)):'1.1';
+    ready();$('generator-version-settings').open=false;
     $('generator-revision-base').textContent=completed?'Revising '+(job.config.title || 'document')+' · version '+job.config.version+'. Download and review the PDF, then enter your feedback below.':'';
     if(completed){clearTimeout(pollTimer);watched=id;workflow(job);}
     dirty=true;await save();message(completed?'Ready for your feedback. The next version will be assigned automatically. Earlier output is preserved.':'Configuration loaded.');
     (completed?$('generator-revision'):$('generator-editor')).scrollIntoView({behavior:'smooth',block:'start'});
+    $('generator-configuration').open=true;
     if(completed)form.elements.feedback.focus();
   }
 
@@ -361,6 +358,9 @@
     const complete=new Set(job.events.filter(event=>event.status==='complete').map(event=>event.step));
     const running=['queued','running'].includes(job.status),done=['ready','needs_review'].includes(job.status);
     document.querySelector('.generator-layout').classList.toggle('is-running',running);
+    document.querySelector('.generator-layout').classList.toggle('is-focused',!!job.id);
+    if(job.id && focusedJob!==job.id){$('generator-configuration').open=false;focusedJob=job.id;}
+    $('generator-configuration-context').textContent=job.id?(job.config?.title || 'Document')+' · v'+(job.config?.version || '1.0'):'Set up your document';
     $('generator-workflow-status').textContent=(job.worker_online===false && running?'Worker heartbeat is missing; live progress is unavailable. ':'')+(job.message || job.error || job.status);
     const intentLabels={summarize:'Preserve intent & evidence',outline:'Plan structure & examples',review:'Review intent & accuracy',assemble:'Quality gate & document layout'};
     const reviewJump=$('generator-review-jump'),reviewFocused=document.activeElement===reviewJump;reviewJump.remove();
@@ -405,13 +405,14 @@
     resumeButton.textContent=running?'Check batch now':'Resume';
     resumeButton.setAttribute('aria-label',running?'Check batch now':'Resume generation');
     const resumeStep=$('generator-steps').querySelector('[data-step="'+job.step+'"]');
-    if(!resumeButton.hidden && resumeStep){resumeStep.append(resumeButton);resumeStep.classList.add('has-resume');}
+    if(!resumeButton.hidden && resumeStep){resumeStep.querySelector('.generator-step-copy').append(resumeButton);resumeStep.classList.add('has-resume');}
     else $('generator-cancel').before(resumeButton);
     if(resumeFocused && !resumeButton.hidden)resumeButton.focus({preventScroll:true});
     $('generator-recovery-status').hidden=!recovery.blocked_reason && !recovery.retry_at && !['failed','cancelled'].includes(job.status);
     $('generator-recovery-status').textContent=recovery.blocked_reason || (recovery.retry_at?'Automatic recovery · attempt '+recovery.attempts+' of 3 · '+(retryWait?'retry in '+retryWait+'s.':'retry due now.')+' Completed stages and saved responses will be reused.':recovery.can_resume?'Resume continues this version from saved progress. Completed work and existing Batch requests are reused.':'');
     $('generator-cost-actual').textContent=job.id?(job.config?.provider==='databricks'?'Databricks usage is billed in your workspace; USD charges are not returned by this endpoint.':job.cost==null?'Model cost: not yet reported by OpenRouter.':'Reported usage cost so far (OpenRouter + BYOK): '+usd(Number(job.cost)))+(job.unreported_calls?' · Some completed charges have not been reported.':'')+(job.warnings?.length?' · '+job.warnings.length+' review/source warnings.':''):'';
     const budget=job.web_budget;
+    $('generator-web-spend').hidden=!budget || (!budget.reported && !budget.reserved && !budget.historical);
     $('generator-web-spend').textContent=budget?'Web research: '+usd(budget.reported)+' reported · '+usd(budget.limit)+' limit for new research'+(budget.historical?' · Earlier native-search charges predate this limit.':budget.reserved?' · '+usd(budget.reserved)+' reserved as a conservative maximum; this is not a charge.':''):'';
     $('generator-billing-details').hidden=!job.billing?.length;
     $('generator-billing-rows').replaceChildren(...(job.billing || []).map(row=>{const p=document.createElement('p');p.textContent=job.config?.provider==='databricks'?row.stage+': Databricks workspace billing'+(row.input_tokens!=null?' · '+row.input_tokens+' input tokens · '+row.output_tokens+' output tokens':''):row.stage+': OpenRouter '+(row.credit_cost==null?'not reported':usd(row.credit_cost))+' · BYOK provider '+(row.is_byok===false?'not applicable':row.provider_cost==null?'not reported':usd(row.provider_cost))+' · Total '+(row.total==null?'not yet verified':usd(row.total))+(row.generation_id?' · Billing reference '+row.generation_id:'');p.style.overflowWrap='anywhere';return p;}));
@@ -492,8 +493,8 @@
     busy=true;clearTimeout(saveTimer);ready();
     try{
       if(saving)await saving;
-      const identity=values();form.reset();populate({...structuredClone(defaults),provider:identity.provider,databricks_model:identity.databricks_model,company:identity.company,logo:identity.logo,website:identity.website,teams:identity.teams,prepared_team:identity.prepared_team,title:'',credits:'',topic:'',questions:'',release_date:'',version:'',youtube:'',documents:[],illustrations:[]});
-      parentId=null;dirty=true;await save();$('generator-fill-status').textContent='Form cleared. Enter a new topic and brief, then use AI to fill the details.';message('Form cleared and saved. Company branding, team contacts and previous documents are preserved.');form.elements.topic.focus();
+      const identity=values();form.reset();populate({...structuredClone(defaults),provider:identity.provider,databricks_model:identity.databricks_model,company:identity.company,logo:identity.logo,website:identity.website,teams:identity.teams,prepared_team:identity.prepared_team,title:'',credits:'',topic:'',questions:'',release_date:'',version:'1.0',version_override:false,youtube:'',documents:[],illustrations:[]});
+      parentId=null;focusedJob=null;document.querySelector('.generator-layout').classList.remove('is-focused');$('generator-configuration').open=true;dirty=true;await save();$('generator-fill-status').textContent='Form cleared. Enter a new topic and brief, then use AI to fill the details.';message('Form cleared and saved. Company branding, team contacts and previous documents are preserved.');form.elements.topic.focus();
     }catch(error){showError(error);}finally{busy=false;ready();}
   });
   form.addEventListener('submit',async event=>{
@@ -515,10 +516,6 @@
     config.logo=await image(files[0]);
   },$('generator-logo')));
   $('generator-illustrations').addEventListener('change',event=>upload(async()=>{const files=[...event.target.files];if(files.length+config.illustrations.length>4)throw new Error('Use at most four supporting images.');const results=await Promise.all(files.map(image));config.illustrations.push(...results);},event.target));
-  $('generator-documents').addEventListener('change',event=>upload(async()=>{
-    const files=[...event.target.files];if(files.length+config.documents.length>10)throw new Error('Use at most ten source documents.');
-    for(const file of files){if(file.size>8*1024*1024)throw new Error('Documents must be under 8 MB.');const body=new FormData();body.append('file',file);const doc=await request('/extract',{method:'POST',body});config.documents.push(doc);}
-  },event.target));
   $('generator-refresh-prices').addEventListener('click',()=>loadPrices(true));
   $('generator-refresh').addEventListener('click',()=>load(true));
   window.addEventListener('nxflo-admin-tab',event=>{if(event.detail==='generator-tab')load();});
