@@ -103,6 +103,20 @@ class Models:
                 output.append(value)
             except (ValueError,KeyError,TypeError):raise GenerationError('Invalid model JSON during '+stage+'. Try a different model or shorter target length.')
         return output
+    def saved_candidate(self,stage,index):
+        """Previous paid work is a candidate, never approval of its content.
+
+        Revalidate it against the current immutable source and full gates; do
+        not submit a replacement merely because validation adapters improved.
+        """
+        row=self.db.execute("SELECT result FROM generator_calls WHERE job_id=? AND stage=? AND status='complete' ORDER BY rowid DESC LIMIT 1",(self.job_id,stage+':'+str(index))).fetchone()
+        if not row:return None
+        try:
+            value=json.loads(json.loads(row['result'])[0]['content'].strip().removeprefix('```json').removeprefix('```').removesuffix('```').strip())
+            if not isinstance(value,dict):raise ValueError()
+            return value
+        except (ValueError,KeyError,IndexError,TypeError):raise GenerationError('A saved repair response is invalid; it will not be submitted again automatically.') from None
+
     def cached(self,stage,identity,bodies):
         key=hashlib.sha256(json.dumps(identity,sort_keys=True).encode()).hexdigest()
         row=self.db.execute('SELECT * FROM generator_calls WHERE job_id=? AND call_key=?',(self.job_id,key)).fetchone()

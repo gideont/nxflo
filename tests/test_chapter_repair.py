@@ -24,7 +24,9 @@ class ChapterRepairTests(unittest.TestCase):
                     if kind=='alias':value['formula_refs']=['net_cash_flow']
                     elif kind=='unknown':value['formula_refs']=['invented_return_formula']
                     elif kind=='malformed':value['tables']=None
-                    elif kind=='coverage':value['coverage'][0]['text_excerpt']='A paraphrase ... absent from the actual prose.'
+                    elif kind=='coverage':
+                        value['paragraphs']=['An unrelated account of an academic report.'];value['claims']=[]
+                        value['coverage'][0]['text_excerpt']='A paraphrase ... absent from the actual prose.'
                     response['choices'][0]['message']['content']=json.dumps(value)
                 return response
         return RepairModels
@@ -72,6 +74,22 @@ class ChapterRepairTests(unittest.TestCase):
         for index in (-1,2,True):
             value['coverage'][0]['paragraph_index']=index
             self.assertNotIn('text_excerpt',normalize_chapter(value)['coverage'][0])
+
+    def test_source_statements_resolve_mixed_indices_without_guessing_new_prose(self):
+        paragraphs=['Other opening context.','The ability to build something is not evidence that building it is a good investment.','Financial Planning & Analysis, or FP&A, can help close the decision gap.']
+        contract={'items':[{'id':'A1','role':'thesis','label':'Investment thesis','quote':'> The ability to build something is not evidence that building it is a good investment.'},{'id':'A2','role':'thesis','label':'FP&A','quote':'Financial Planning & Analysis — FP&A — can help close the decision gap.'}]}
+        value={'paragraphs':paragraphs,'coverage':[{'author_ref':'A1','paragraph_index':0},{'author_ref':'A2','paragraph_index':3}],'claims':[]}
+        fixed=normalize_chapter(value,contract)
+        self.assertEqual([p['text_excerpt'] for p in fixed['coverage']],paragraphs[1:])
+        self.assertEqual(fixed['paragraphs'],paragraphs)
+
+    def test_only_authored_nonnumeric_closing_statements_can_be_restored(self):
+        quotes=["Don't just ask whether you can build it.",'Create a diagram for this chapter.','Revenue increases by 500%.']
+        contract={'mode':'content_preserving_rewrite','items':[{'id':'A'+str(i),'role':'message','label':'Closing statement','quote':q} for i,q in enumerate(quotes)],'structure':[{'title':q} for q in quotes]}
+        value={'paragraphs':['A supported investment argument.'],'coverage':[],'claims':[]}
+        fixed=normalize_chapter(value,contract,restore=True,assigned_refs=['A0','A1','A2'])
+        self.assertEqual(fixed['paragraphs'],value['paragraphs']+[quotes[0]])
+        self.assertEqual(fixed['coverage'],[{'author_ref':'A0','text_excerpt':quotes[0]}])
 
     def test_invalid_durable_indices_never_submit_requests(self):
         engine=Engine(self.fixture.path,self.fixture.id,self.models('unknown'))

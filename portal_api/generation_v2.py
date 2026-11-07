@@ -144,10 +144,21 @@ class IntentPipeline:
         from .generation_chapter_validation import normalize_chapter,chapter_issues
         plans=s['outline']['chapters']
         if len(chapters)!=len(plans):raise GenerationError('A generation stage lost planned chapters.')
-        chapters=[normalize_chapter(ch) for ch in chapters];document={'chapters':chapters}
+        prior_repairs=set()
+        if repair and hasattr(self.models,'saved_candidate'):
+            for index in range(len(chapters)):
+                saved=self.models.saved_candidate('intent-repair-'+stage,index)
+                if saved is not None:chapters[index]=saved;prior_repairs.add(index)
+        chapters=[normalize_chapter(ch,s['author_contract'],restore=(index in prior_repairs or not repair),assigned_refs=plans[index]['author_refs']) for index,ch in enumerate(chapters)]
+        from .generation_calculated_charts import route_calculated_charts,render_reference
+        chapters=route_calculated_charts(chapters,s.get('financials'),s['author_original']);document={'chapters':chapters}
         diagnostics={};safe=True
         for index,(ch,plan) in enumerate(zip(chapters,plans)):
             problems,valid=chapter_issues(ch,plan,s,self.config);safe=safe and valid
+            if valid:
+                for ref in ch.get('calculated_chart_refs',[]):
+                    try:render_reference(ref,s.get('financials'),s['author_original'])
+                    except (GenerationError,TypeError,KeyError):problems.append('Invalid calculated figure reference.')
             if problems:diagnostics[index]=problems
         errors=sorted(set(local_publication_issues(document,s['author_contract'],self.config,s['sources'],plans,s.get('financials')))) if safe else []
         # Cross-chapter defects (for example repeated disclaimers) still require
@@ -158,9 +169,9 @@ class IntentPipeline:
             for index,ch in enumerate(chapters):
                 if DISCLAIMERS.search(manuscript_text({'chapters':[ch]})):
                     diagnostics[index]=sorted(set(diagnostics.get(index,[])+['Remove repetitive blanket disclaimers while retaining substantive risks and scenario assumptions.']))
-        if diagnostics and repair:
+        if diagnostics and repair and set(diagnostics)-prior_repairs:
             self.e.checkpoint({**s,'blocked_candidate':document,'chapter_diagnostics':{str(i+1):problems for i,problems in diagnostics.items()}})
-            prompts=[];indices=sorted(diagnostics)
+            prompts=[];indices=sorted(set(diagnostics)-prior_repairs)
             for index in indices:
                 ch=chapters[index];plan=plans[index]
                 prompts.append('Repair the manuscript against the original author contract, not into a different genre. '+self.chapter_context(s,plan)+
@@ -215,6 +226,10 @@ class IntentPipeline:
         # Empirical series retain the original exact-source verification path.
         result=self.e.charts(s)
         result['warnings']=[w for w in result['warnings'] if not w.startswith('Chart coverage:')]
+        from .generation_calculated_charts import render_reference
+        for index,ch in enumerate(s['document']['chapters']):
+            for ref in ch.get('calculated_chart_refs',[]) if self.config['charts'] else []:
+                result['charts'].append({**render_reference(ref,s['financials'],s['author_original']),'chapter':index})
         if s.get('financials'):
             # Recompute rather than trust stored/model-written output values.
             expected=build_financials({'groups':[{k:v for k,v in group.items() if k!='results'} for group in s['financials']['groups']]})

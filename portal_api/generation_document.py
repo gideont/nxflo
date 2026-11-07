@@ -68,7 +68,9 @@ def assemble(config,state):
             if formula in FORMULAS:body+='<p class="registered-formula"><code>'+e(FORMULAS[formula])+'</code></p>'
         body+=worked_examples({**state,'config':config},i)
         for chart in state.get('charts',[]):
-            if chart.get('classification')=='hypothetical':continue
+            if chart.get('classification')=='hypothetical':
+                if chart.get('in_chapter') and chart['chapter']==i:body+='<figure>'+chart['svg']+'<figcaption>'+e(chart['caption'])+'</figcaption></figure>'
+                continue
             if chart['chapter']==i:body+='<figure>'+chart['svg']+'<figcaption>'+e(chart['caption'])+'</figcaption></figure>'
         if config['images'] and i<len(config['illustrations']):body+='<figure><img src="'+config['illustrations'][i]+'" alt="Supporting image '+str(i+1)+'"></figure>'
         body+='</section>'
