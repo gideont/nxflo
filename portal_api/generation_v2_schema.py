@@ -1,12 +1,18 @@
 """Explicit author contracts, prose provenance and calculator-input schemas."""
 from .generation_schema import object_schema,STRING,STRINGS,CHART
-from .generation_finance import COMMON,DRIVERS
+from .generation_finance import COMMON,DRIVERS,FORMULAS
 
 PROOF=object_schema({'author_ref':STRING,'text_excerpt':STRING})
 EVIDENCE=object_schema({'source_id':STRING,'quote':STRING})
 TABLE=object_schema({'title':STRING,'columns':STRINGS,'rows':{'type':'array','items':STRINGS},'classification':{'type':'string','enum':['authorial','empirical']},'evidence':{'type':'array','items':EVIDENCE}})
 CLAIM=object_schema({'text':STRING,'classification':{'type':'string','enum':['authorial','empirical']},'source_id':STRING,'quote':STRING})
 CHAPTER=object_schema({'title':STRING,'paragraphs':STRINGS,'takeaway':STRING,'charts':{'type':'array','items':CHART},'tables':{'type':'array','items':TABLE},'section_keys':STRINGS,'coverage':{'type':'array','items':PROOF},'claims':{'type':'array','items':CLAIM},'formula_refs':STRINGS})
+# Repairs bind evidence to server-selected literal paragraphs. They cannot
+# certify a paraphrase or an absent quotation as if it appeared in the prose.
+REPAIR_CHAPTER=object_schema({**CHAPTER['properties'],
+    'coverage':{'type':'array','items':object_schema({'author_ref':STRING,'paragraph_index':{'type':'integer','minimum':0}})},
+    'claims':{'type':'array','items':object_schema({'paragraph_index':{'type':'integer','minimum':0},'classification':{'type':'string','enum':['authorial','empirical']},'source_id':STRING,'quote':STRING})},
+    'formula_refs':{'type':'array','items':{'type':'string','enum':list(FORMULAS)}}})
 PLAN=object_schema({'title':STRING,'brief':STRING,'charts_needed':STRINGS,'section_keys':STRINGS,'author_refs':STRINGS})
 
 
@@ -28,5 +34,6 @@ def schema(stage):
     if stage=='outline':return object_schema({'title':STRING,'chapters':{'type':'array','minItems':1,'maxItems':24,'items':PLAN}})
     if stage.startswith('publication-quality'):
         return object_schema({'checks':{'type':'array','items':object_schema({'criterion':STRING,'passed':{'type':'boolean'},'evidence':STRING,'reason':STRING})}})
-    if stage in ('draft','polish') or stage.startswith(('rewrite-','intent-repair-')):return CHAPTER
+    if stage.startswith('intent-repair-'):return REPAIR_CHAPTER
+    if stage in ('draft','polish') or stage.startswith('rewrite-'):return CHAPTER
     return None

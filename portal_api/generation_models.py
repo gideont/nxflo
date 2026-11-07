@@ -45,7 +45,9 @@ class Models:
         except GenerationError as error:
             detail=' The provider rejected this submission.' if isinstance(error,RejectedGenerationError) else ' A submitted request may still be billed; it will not be retried automatically.' if method=='POST' else ''
             raise type(error)(label+': '+str(error)+detail) from None
-    def many(self,role,prompts,stage,*,structured=True,web=False):
+    def many(self,role,prompts,stage,*,structured=True,web=False,indices=None):
+        if indices is not None and (not isinstance(indices,(list,tuple)) or len(indices)!=len(prompts) or any(type(index) is not int or index<0 for index in indices) or len(set(indices))!=len(indices)):
+            raise GenerationError('Invalid durable request indices.')
         databricks=self.config.get('provider')=='databricks'
         if databricks:
             from .generation_providers import databricks_settings
@@ -86,11 +88,12 @@ class Models:
         def progress(completed):
             self.db.execute('UPDATE generator_jobs SET work_progress=? WHERE id=?',(json.dumps({'step':step,'stage':stage,'completed':completed,'total':len(bodies),'unit':'requests'}),self.job_id))
         progress(0)
+        if indices is not None and model.endswith(':batch'):raise GenerationError('Targeted repairs require synchronous generation.')
         if model.endswith(':batch'):result=self.cached(stage,{'batch':True,'model':model,'bodies':bodies},bodies)
         else:
             result=[]
             for i,body in enumerate(bodies):
-                result.append(self.cached(stage+':'+str(i),{'model':model,'body':body,**({'provider':'databricks'} if databricks else {}),**({'web_plan':plan} if plan else {})},[body])[0]);progress(i+1)
+                result.append(self.cached(stage+':'+str(indices[i] if indices is not None else i),{'model':model,'body':body,**({'provider':'databricks'} if databricks else {}),**({'web_plan':plan} if plan else {})},[body])[0]);progress(i+1)
         if not structured:return result
         output=[]
         for message in result:

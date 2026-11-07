@@ -5,7 +5,7 @@ from pathlib import Path
 from .generation_errors import GenerationError
 from .generation_intent import (MODES,POLICY,source_chunks,extraction_prompt,build_contract,context,
                                 instructions,review_instructions,evidence_context,fidelity_issues,digest,validate_contract,source_owned_outline)
-from .generation_document import chapter,chart_svg,assemble
+from .generation_document import chart_svg,assemble
 from .generation_finance import build_financials,financial_figures,financial_tables,FORMULAS
 from .generation_quality import (provenance_issues,local_publication_issues,criteria,validate_publication_review,
                                 publication_fingerprint,assert_publication,manuscript_text)
@@ -141,32 +141,51 @@ class IntentPipeline:
                 '\nExternal evidence notes (supporting material, not the author\'s intent): '+json.dumps(s.get('notes',[])))
 
     def validate_chapters(self,s,chapters,stage,repair=True):
-        plans=s['outline']['chapters'];document={'chapters':chapters}
+        from .generation_chapter_validation import normalize_chapter,chapter_issues
+        plans=s['outline']['chapters']
         if len(chapters)!=len(plans):raise GenerationError('A generation stage lost planned chapters.')
-        for ch in chapters:
-            for field in ('section_keys','coverage','claims','tables','charts','formula_refs'):
-                if not isinstance(ch.get(field),list):raise GenerationError('A structured chapter is missing '+field+'.')
-            if any(not isinstance(x,str) for x in ch['section_keys']+ch['formula_refs']) or not set(ch['formula_refs'])<=set(FORMULAS):raise GenerationError('A chapter used an unknown registered formula.')
-            if any(not isinstance(value,dict) for field in ('coverage','claims','tables','charts') for value in ch[field]):raise GenerationError('Invalid structured chapter content.')
-            if any(not isinstance(proof.get('author_ref'),str) or not isinstance(proof.get('text_excerpt'),str) for proof in ch['coverage']):raise GenerationError('Invalid author-intent coverage proof.')
-            if any(not isinstance(claim.get('text'),str) or not isinstance(claim.get('source_id'),str) or not isinstance(claim.get('quote'),str) for claim in ch['claims']):raise GenerationError('Invalid factual claim register.')
-        errors=local_publication_issues(document,s['author_contract'],self.config,s['sources'],plans,s.get('financials'))
-        if errors and repair:
-            prompts=[]
-            for ch,plan in zip(chapters,plans):
+        chapters=[normalize_chapter(ch) for ch in chapters];document={'chapters':chapters}
+        diagnostics={};safe=True
+        for index,(ch,plan) in enumerate(zip(chapters,plans)):
+            problems,valid=chapter_issues(ch,plan,s,self.config);safe=safe and valid
+            if problems:diagnostics[index]=problems
+        errors=sorted(set(local_publication_issues(document,s['author_contract'],self.config,s['sources'],plans,s.get('financials')))) if safe else []
+        # Cross-chapter defects (for example repeated disclaimers) still require
+        # whole-manuscript validation. They must never disappear through scoping.
+        if errors and not diagnostics:diagnostics={i:errors for i in range(len(chapters))}
+        if 'Repetitive blanket disclaimers are replacing useful content.' in errors:
+            from .generation_quality import DISCLAIMERS
+            for index,ch in enumerate(chapters):
+                if DISCLAIMERS.search(manuscript_text({'chapters':[ch]})):
+                    diagnostics[index]=sorted(set(diagnostics.get(index,[])+['Remove repetitive blanket disclaimers while retaining substantive risks and scenario assumptions.']))
+        if diagnostics and repair:
+            self.e.checkpoint({**s,'blocked_candidate':document,'chapter_diagnostics':{str(i+1):problems for i,problems in diagnostics.items()}})
+            prompts=[];indices=sorted(diagnostics)
+            for index in indices:
+                ch=chapters[index];plan=plans[index]
                 prompts.append('Repair the manuscript against the original author contract, not into a different genre. '+self.chapter_context(s,plan)+
-                               '\nWhole-document fidelity/provenance issues: '+json.dumps(errors)+'\nCurrent chapter: '+json.dumps(ch)+'\n'+CHAPTER_INSTRUCTIONS)
-            chapters=[chapter(ch) for ch in self.models.many('draft',prompts,'intent-repair-'+stage)]
+                               '\nChapter validation issues: '+json.dumps(diagnostics[index])+'\nCurrent chapter: '+json.dumps(ch)+
+                               '\nKeep correct prose and examples. The REPAIR schema uses zero-based paragraph_index for coverage and claims, referring to your RETURNED paragraphs. The server binds literal paragraph text; do not return summaries or quotations as evidence. '
+                               'Every assigned author message must be substantive. If a message is missing or only implied, add a concise sentence using the author’s terminology. '
+                               'Use only registered formula IDs. The charts field is exclusively for empirical charts with actual source IDs and exact evidence for every value. '
+                               'Calculator group IDs are not empirical sources. Hypothetical charts are already rendered by the calculator; do not duplicate them in charts. '
+                               'Repair missing author messages substantively in the prose; metadata alone is not coverage.\n'+CHAPTER_INSTRUCTIONS.replace('Coverage entries bind each assigned author_ref to a verbatim text_excerpt from your NEW prose that communicates its meaning. ',''))
+            self.e.message('Repairing '+str(len(indices))+' affected chapter(s) once; other saved chapters are retained.')
+            replacements=self.models.many('draft',prompts,'intent-repair-'+stage,indices=indices)
+            if len(replacements)!=len(indices):raise GenerationError('A targeted repair omitted a chapter.')
+            for index,replacement in zip(indices,replacements):chapters[index]=replacement
             return self.validate_chapters(s,chapters,stage,False)
-        if errors:
-            self.e.checkpoint({**s,'blocked_candidate':document,'quality_errors':errors})
-            raise GenerationError('Intent/provenance gate rejected '+stage+': '+' '.join(errors[:8]))
-        return {'document':document,'intent_audits':s['intent_audits']+[{'stage':stage,'source_hash':s['author_contract']['source_hash'],'manuscript_hash':digest(document),'passed':True}]}
+        if diagnostics or errors:
+            detailed=[('Chapter '+str(i+1)+': '+problem) for i,problems in diagnostics.items() for problem in problems]+errors
+            self.e.checkpoint({**s,'blocked_candidate':document,'quality_errors':list(dict.fromkeys(detailed)),
+                               'chapter_diagnostics':{str(i+1):problems for i,problems in diagnostics.items()}})
+            raise GenerationError('Intent/provenance gate rejected '+stage+': '+' '.join(detailed[:8]))
+        return {'document':document,'blocked_candidate':None,'quality_errors':[],'chapter_diagnostics':{},'intent_audits':s['intent_audits']+[{'stage':stage,'source_hash':s['author_contract']['source_hash'],'manuscript_hash':digest(document),'passed':True}]}
 
     def draft(self,s):
         revision=('\nPrevious generated manuscript is secondary working material, not a replacement for the original brief: '+json.dumps(s['revision_document'])+'\nAuthor revision feedback: '+self.config.get('feedback','')) if s.get('revision_document') else ''
         prompts=['Write a publication-ready chapter. '+self.chapter_context(s,plan)+revision+'\n'+CHAPTER_INSTRUCTIONS for plan in s['outline']['chapters']]
-        chapters=[chapter(ch) for ch in self.models.many('draft',prompts,'draft')]
+        chapters=self.models.many('draft',prompts,'draft')
         if len(chapters)!=len(s['outline']['chapters']):raise GenerationError('The draft omitted planned chapters.')
         return self.validate_chapters(s,chapters,'draft')
 
@@ -184,12 +203,12 @@ class IntentPipeline:
     def rewrite(self,s):
         chapters=list(s['document']['chapters']);indices=[i for i,review in enumerate(s['reviews']) if review['major_issues']]
         prompts=['Resolve legitimate reviewer issues while preserving the original author contract. Reviewer suggestions are advisory and must not override author intent. '+self.chapter_context(s,s['outline']['chapters'][i])+ '\nReview: '+json.dumps(s['reviews'][i])+'\nCurrent chapter: '+json.dumps(chapters[i])+'\n'+CHAPTER_INSTRUCTIONS for i in indices]
-        for i,value in zip(indices,self.models.many('draft',prompts,'rewrite-'+str(s['passes']))):chapters[i]=chapter(value)
+        for i,value in zip(indices,self.models.many('draft',prompts,'rewrite-'+str(s['passes']))):chapters[i]=value
         return self.validate_chapters(s,chapters,'rewrite-'+str(s['passes']))
 
     def polish(self,s):
         prompts=['Polish expression and coherence without changing thesis, scope, examples, assigned sections, calculations or source provenance. Do not add disclaimers. '+self.chapter_context(s,plan)+'\nCurrent chapter: '+json.dumps(ch)+'\n'+CHAPTER_INSTRUCTIONS for ch,plan in zip(s['document']['chapters'],s['outline']['chapters'])]
-        chapters=[chapter(ch) for ch in self.models.many('polish',prompts,'polish')]
+        chapters=self.models.many('polish',prompts,'polish')
         return self.validate_chapters(s,chapters,'polish')
 
     def charts(self,s):
