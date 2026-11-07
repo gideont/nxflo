@@ -18,10 +18,10 @@ img,svg{max-width:100%;height:auto}figure img{width:auto;max-height:145mm;margin
 .cover-company{font:600 15px var(--font-ui);color:inherit;margin:12px 0}
 .cover-body{padding:8mm 0}.cover h1{max-width:100%;bookmark-level:none}
 .cover .eyebrow{color:#fff;margin:0 0 6mm}.cover-rule{background:var(--accent);margin:8mm 0 0}
-.logo{display:block;width:auto;max-width:46mm;max-height:24mm;object-fit:contain}
+.logo{display:block;width:auto;max-width:46mm;max-height:24mm;object-fit:contain;background:#fff;padding:3mm}
 .cover-meta{display:flex;flex-wrap:wrap;gap:8mm;margin:0 0 5mm}
 .cover-meta>div{min-width:0;flex:1}.cover-meta dt{font-size:8pt;margin-bottom:2mm}.cover-meta dd{margin:0;font-weight:600}
-.cover-credits,.prepared-by,.cover-website{font:9pt/1.6 var(--font-ui);margin:0 0 3mm}
+.prepared-by,.cover-website{font:9pt/1.6 var(--font-ui);margin:0 0 3mm}
 .cover p{max-width:none}.cover a,.cover strong{color:inherit}.cover-details p:last-child{margin-bottom:0}
 .contents{padding-top:3mm;break-after:page}.contents h2{font:600 18pt var(--font-ui);bookmark-level:none;border-bottom:2px solid var(--brand);padding-bottom:4mm}
 .contents ol{max-width:none;list-style:none;padding:0}.contents li{font:10pt/1.6 var(--font-ui);border-bottom:1px solid var(--rule);padding:3mm 0}.contents a{display:block}
@@ -53,7 +53,7 @@ footer,.running-header,.running-footer{display:none}
   p,ul,ol,blockquote{max-width:none}
   .cover{width:100%;height:auto;min-height:760px;margin:0;padding:clamp(22px,4vw,45px);margin-bottom:40px}
   .cover h1{font-size:clamp(30px,5vw,49px);line-height:1.17}
-  .cover-body{padding:40px 0}.cover-credits,.prepared-by,.cover-website{font-size:13px}
+  .cover-body{padding:40px 0}.prepared-by,.cover-website{font-size:13px}
   .contents{padding:0 0 35px}.contents li{font-size:15px}.contents a{min-height:44px;padding:9px 0}
   .report-chapter,.appendix,.document-control{padding-top:40px}
   h2,h2.section{font-size:27px}.appendix h2.section{font-size:25px}

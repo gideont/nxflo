@@ -17,7 +17,7 @@ def team_name(config):
 
 
 def history_entry(config,created_at,summary=None):
-    return {'version':config.get('version') or '1.0','date':datetime.fromisoformat(created_at.replace('Z','+00:00')).astimezone(ZoneInfo('America/Vancouver')).date().isoformat(),'prepared_by':team_name(config) or config.get('credits') or config.get('company') or 'Document author','summary':summary or config.get('change_summary') or 'Initial issue.'}
+    return {'version':config.get('version') or '1.0','date':datetime.fromisoformat(created_at.replace('Z','+00:00')).astimezone(ZoneInfo('America/Vancouver')).date().isoformat(),'prepared_by':team_name(config) or 'Not specified','summary':summary or config.get('change_summary') or 'Initial issue.'}
 
 
 def prepare_revision(connection,parent,config,Error):

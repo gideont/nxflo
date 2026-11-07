@@ -18,6 +18,36 @@ STEPS=['collect','summarize','outline','draft','review','rewrite','polish','char
 CHAPTER_SCHEMA='Return JSON {"title":"...","paragraphs":["plain text paragraphs with [B1], [D1] or [R1] source citations"],"takeaway":"...","charts":[{"kind":"bar or line","title":"...","labels":["..."],"values":[1.0],"unit":"...","source_id":"B1","evidence":["exact source excerpt containing the corresponding number"]}]}. No HTML or Markdown. Use charts only when requested and supported by exact numerical source evidence. Never invent chart values.'
 
 
+def chart_guidance(config):
+    if not config['charts']:
+        return 'Charts are disabled. Return an empty charts array; do not propose charts.'
+    return ('Aim for 1–2 useful charts or graphs per 1–2 pages of body content '
+            '(approximately 450–900 words). Plan distinct comparisons, trends or distributions '
+            'where numerical source evidence supports them. Include exact source excerpts for '
+            'every plotted value. Preserve valid charts through review and polishing. '
+            'Never invent values, fill a visual quota, or present assumptions as measured results. '
+            'When evidence is insufficient, explain the limitation instead.')
+
+
+def chart_evidence(config, sources):
+    """Bounded exact excerpts let the writer satisfy the chart verifier."""
+    if not config['charts']:
+        return ''
+    evidence=[];remaining=8000
+    for source in sources:
+        excerpts=[];text=source.get('text','');covered=0
+        for match in re.finditer(r'\d[\d,.]*',text):
+            if match.start()<covered:continue
+            covered=min(len(text),match.end()+250)
+            quote=text[max(0,match.start()-100):covered].strip()
+            if not quote or len(quote)>remaining:continue
+            excerpts.append(quote);remaining-=len(quote)
+            if len(excerpts)>=6 or remaining<100:break
+        if excerpts:evidence.append({'source_id':source['id'],'exact_excerpts':excerpts})
+        if remaining<100:break
+    return '\nOriginal numerical source excerpts for charts (use only relevant supported values): '+json.dumps(evidence)
+
+
 class HTMLReviewPaused(Exception):
     """The saved HTML needs explicit approval before PDF export."""
 
@@ -130,14 +160,14 @@ class Engine:
         c=self.config
         count=max(2,min(12,(c['pages']+2)//3)) if c['length_mode']=='target' else None
         revision=('\nThis is an editorial revision of an existing document. Preserve its useful structure and content unless the feedback asks for changes. Previous chapter titles: '+json.dumps([ch['title'] for ch in s['revision_document']['chapters']])+'\nUser review feedback (editorial instructions, not verified evidence): '+self.config.get('feedback','')) if s.get('revision_document') else ''
-        prompt='Create a useful chapter outline for a '+c['report_type']+' titled '+c['title']+'. Target '+(str(c['pages'])+' approximate A4 pages' if c['length_mode']=='target' else 'a natural length based on evidence, without padding')+'. Research questions: '+c['questions']+'\nReturn JSON {"title":"...","chapters":[{"title":"...","brief":"...","charts_needed":["..."]}]}, '+('exactly '+str(count)+' chapters' if count else '2–12 chapters')+'. Evidence notes:\n'+json.dumps(s['notes'])+revision
+        prompt='Create a useful chapter outline for a '+c['report_type']+' titled '+c['title']+'. Target '+(str(c['pages'])+' approximate A4 pages' if c['length_mode']=='target' else 'a natural length based on evidence, without padding')+'. Research questions: '+c['questions']+'\nReturn JSON {"title":"...","chapters":[{"title":"...","brief":"...","charts_needed":["..."]}]}, '+('exactly '+str(count)+' chapters' if count else '2–12 chapters')+'. '+chart_guidance(c)+'. Evidence notes:\n'+json.dumps(s['notes'])+revision
         result=self.models.many('draft',[prompt],'outline')[0]
         if not isinstance(result.get('chapters'),list) or not 2<=len(result['chapters'])<=12 or count is not None and len(result['chapters'])!=count or any(not isinstance(ch,dict) or not isinstance(ch.get('title'),str) for ch in result['chapters']):raise GenerationError('Invalid chapter outline.')
         return {'outline':result}
     def draft(self,s):
         c=self.config;count=len(s['outline']['chapters']);words=max(100,int(c['pages']*450/count)) if c['length_mode']=='target' else 650
         revision=('\nRevise the existing document rather than replacing it with unrelated new writing. Apply this editorial feedback where relevant: '+c.get('feedback','')+'\nPrevious manuscript with source IDs mapped to the supplied evidence: '+json.dumps(s['revision_document'])) if s.get('revision_document') else ''
-        prompts=['Write a complete chapter, approximately '+str(words)+' words, for this '+c['report_type']+'. Chapter plan: '+json.dumps(plan)+'\nCharts enabled: '+str(c['charts'])+'\n'+CHAPTER_SCHEMA+'\nEvidence: '+json.dumps(s['notes'])+revision for plan in s['outline']['chapters']]
+        prompts=['Write a complete chapter, approximately '+str(words)+' words, for this '+c['report_type']+'. Chapter plan: '+json.dumps(plan)+'\n'+chart_guidance(c)+'\n'+CHAPTER_SCHEMA+'\nEvidence: '+json.dumps(s['notes'])+chart_evidence(c,s['sources'])+revision for plan in s['outline']['chapters']]
         return {'document':{'chapters':[chapter(ch) for ch in self.models.many('draft',prompts,'draft')]}}
     def review(self,s):
         prompts=['Review this chapter for unsupported figures, gaps, weak reasoning, missing citations and practical recommendations. Return JSON {"major_issues":["specific problem and fix"],"minor_notes":["..."]}. Empty major_issues means approved. Evidence: '+json.dumps(s['notes'])+'\nChapter: '+json.dumps(ch)+'\nCheck that applicable editorial feedback was addressed: '+self.config.get('feedback','') for ch in s['document']['chapters']]
@@ -146,13 +176,13 @@ class Engine:
         return {'reviews':reviews,'passes':s['passes']+1}
     def rewrite(self,s):
         chapters=list(s['document']['chapters']);indices=[i for i,item in enumerate(s['reviews']) if item['major_issues']]
-        prompts=['Fix every major reviewer issue while preserving supported facts, source IDs and chapters. '+CHAPTER_SCHEMA+'\nReview: '+json.dumps(s['reviews'][i])+'\nEvidence: '+json.dumps(s['notes'])+'\nChapter: '+json.dumps(chapters[i]) for i in indices]
+        prompts=['Fix every major reviewer issue while preserving supported facts, source IDs and chapters. '+chart_guidance(self.config)+' '+CHAPTER_SCHEMA+'\nReview: '+json.dumps(s['reviews'][i])+'\nEvidence: '+json.dumps(s['notes'])+chart_evidence(self.config,s['sources'])+'\nChapter: '+json.dumps(chapters[i]) for i in indices]
         for i,revised in zip(indices,self.models.many('draft',prompts,'rewrite-'+str(s['passes']))):chapters[i]=chapter(revised)
         warnings=list(s.get('warnings',[]))
         if s['passes']>=self.config['review_passes']:warnings.append('The review budget was reached. The final corrective rewrite requires manual review.')
         return {'document':{'chapters':chapters},'warnings':warnings}
     def polish(self,s):
-        prompts=['Polish tone, terminology, consistency and actionable recommendations. Preserve every fact, source citation and chart number. Do not introduce new claims. '+CHAPTER_SCHEMA+'\nChapter: '+json.dumps(ch)+'\nPreserve changes requested in the user editorial feedback: '+self.config.get('feedback','') for ch in s['document']['chapters']]
+        prompts=['Polish tone, terminology, consistency and actionable recommendations. Preserve every fact, source citation and chart number. Do not introduce new claims. '+chart_guidance(self.config)+' '+CHAPTER_SCHEMA+'\nChapter: '+json.dumps(ch)+'\nPreserve changes requested in the user editorial feedback: '+self.config.get('feedback','') for ch in s['document']['chapters']]
         chapters=[chapter(ch) for ch in self.models.many('polish',prompts,'polish')]
         available={source['id'] for source in s['sources'] if source.get('text')};warnings=list(s.get('warnings',[]))
         for ch in chapters:
@@ -166,6 +196,11 @@ class Engine:
                 for data in ch.get('charts',[]):
                     try:charts.append({'chapter':i,'svg':chart_svg(data,self.config,s['sources']),'caption':str(data.get('title','Chart'))+' · Source ['+str(data.get('source_id',''))+']'})
                     except (ValueError,TypeError,KeyError):warnings.append('A proposed chart was omitted because its data could not be verified against exact source excerpts.')
+        if self.config['charts']:
+            words=sum(len(p.split()) for ch in s['document']['chapters'] for p in ch['paragraphs'])
+            minimum=max(1,(words+899)//900)
+            if len(charts)<minimum:
+                warnings.append('Chart coverage: '+str(len(charts))+' verified charts for approximately '+str(max(1,(words+449)//450))+' body pages. Aim for 1–2 charts or graphs per 1–2 pages where numerical source evidence supports them. More numerical evidence may be needed.')
         return {'charts':charts,'warnings':list(dict.fromkeys(warnings))}
     def assemble(self,s):
         self.directory.mkdir(parents=True,exist_ok=True)

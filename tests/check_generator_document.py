@@ -9,7 +9,7 @@ def check():
            'document':{'chapters':[{'title':'Operational recommendations','paragraphs':['Establish a regular evidence review cadence [B1].'],'charts':[]}]},
            'revision_history':[{'version':'1.0','date':'2026-11-05','prepared_by':'Research Team at Nexusflow Inc.','summary':'Initial issue.'},
                                {'version':'1.1','date':'2026-11-05','prepared_by':'Research Team at Nexusflow Inc.','summary':'Expanded the measurement recommendations and clarified ownership.'}]}
-    html=assemble({**DEFAULTS,'title':'Operational review guidance','version':'1.1','release_date':'2026-11-05'},state)
+    html=assemble({**DEFAULTS,'title':'Operational review guidance','version':'1.1','release_date':'2026-11-05','credits':'Independent research; AI-assisted draft','logo':'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='},state)
     assert 'folio — base layer: STRUCTURE ONLY.' in html and 'report — corporate, confident, safe.' in html
     assert 'data-document-engine="folio"' in html
     with sync_playwright() as p:
@@ -23,6 +23,12 @@ def check():
             assert page.locator('#document-contact a[href="https://www.nxflo.com"]').is_visible()
             assert page.locator('.revision-table tbody tr').count()==2
             assert 'Review required' not in page.locator('.cover').inner_text()
+            assert 'Created by' not in page.locator('body').inner_text()
+            assert 'AI-assisted draft' not in page.locator('body').inner_text()
+            assert page.locator('.logo').evaluate('el=>getComputedStyle(el).backgroundColor')=='rgb(255, 255, 255)'
+            page.emulate_media(media='print')
+            assert page.locator('.logo').evaluate('el=>getComputedStyle(el).backgroundColor')=='rgb(255, 255, 255)'
+            page.emulate_media(media='screen')
             assert page.locator('.cover').evaluate('element=>element===document.querySelector("main").firstElementChild')
             assert 'A source was unavailable' in page.locator('#editorial-notes').inner_text()
             assert page.locator('#editorial-notes').evaluate('element=>element.compareDocumentPosition(document.querySelector("#document-control")) & Node.DOCUMENT_POSITION_FOLLOWING')

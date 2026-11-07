@@ -8,7 +8,7 @@
   const checks=['toc','charts','images','graphics','web_search','advanced_models'];
   const numeric=['pages','review_passes','cost_pages','web_budget_usd'];
   const defaultModels={summary_model:'openai/gpt-6-luna',draft_model:'openai/gpt-6-luna',polish_model:'openai/gpt-6-luna'};
-  const aiFields=['company','title','credits','questions'];
+  const aiFields=['company','title','questions'];
   let pricing=null,observedSources=null,matrixSignature='';
   let timedJob=null,timingReceived=0;
   let providerSettings={openrouter:{configured:false},databricks:{configured:false,model:''}};
@@ -199,6 +199,9 @@
       const row=document.createElement('div'),name=document.createElement('span');name.textContent='Supporting image '+(i+1);row.append(name,button('Remove',()=>{config.illustrations.splice(i,1);fileList();changed();}));return row;
     }));
     $('generator-logo-preview').hidden=!config.logo;
+    $('generator-logo-empty').hidden=!!config.logo;$('generator-logo-help').hidden=!!config.logo;
+    $('generator-logo-drop').classList.toggle('has-logo',!!config.logo);
+    $('generator-logo-drop').setAttribute('aria-label',config.logo?'Replace company logo':'Upload company logo');
     const logo=$('generator-logo-preview').querySelector('img');if(config.logo)logo.src=config.logo;else logo.removeAttribute('src');
   }
   function teamOptions(selected) {
@@ -354,6 +357,7 @@
     const running=['queued','running'].includes(job.status),done=['ready','needs_review'].includes(job.status);
     document.querySelector('.generator-layout').classList.toggle('is-running',running);
     $('generator-workflow-status').textContent=(job.worker_online===false && running?'Worker heartbeat is missing; live progress is unavailable. ':'')+(job.message || job.error || job.status);
+    const reviewJump=$('generator-review-jump'),reviewFocused=document.activeElement===reviewJump;reviewJump.remove();
     $('generator-steps').replaceChildren(...steps.map(([key,label],i)=>{
       const currentState=job.worker_online===false?'stalled':job.wait_state?.label || job.batch_wait || job.recovery?.retry_at?'waiting':job.status==='queued'?'queued':'running';
       const li=document.createElement('li');li.dataset.step=key;li.dataset.state=job.status==='awaiting_html_review' && key==='html_review'?'review':running && job.step===key?currentState:job.status==='failed' && job.step===key?'failed':complete.has(key)?'complete':'pending';
@@ -366,6 +370,8 @@
       const count=document.createElement('small');count.className='generator-step-count';count.hidden=true;
       copy.append(name,state,elapsed,count);li.append(dot,copy);return li;
     }));
+    $('generator-steps').querySelector('[data-step=html_review] .generator-step-copy').append(reviewJump);
+    if(reviewFocused)reviewJump.focus({preventScroll:true});
     renderStepTimes(job,job.server_time || Date.now()/1000);
     const wait=job.wait_state || {};
     $('generator-wait-status').hidden=!running || (!wait.label && !job.batch_wait);
@@ -482,7 +488,14 @@
     }catch(error){showError(error);}finally{busy=false;ready();}
   });
   $('generator-logo').addEventListener('change',event=>upload(async()=>{const file=event.target.files[0];if(file)config.logo=await image(file);},event.target));
-  $('generator-remove-logo').addEventListener('click',()=>{config.logo='';fileList();changed();});
+  const logoDrop=$('generator-logo-drop');
+  logoDrop.addEventListener('click',()=>$('generator-logo').click());
+  for(const name of ['dragenter','dragover'])logoDrop.addEventListener(name,event=>{event.preventDefault();logoDrop.classList.add('is-dragging');});
+  for(const name of ['dragleave','drop'])logoDrop.addEventListener(name,event=>{event.preventDefault();logoDrop.classList.remove('is-dragging');});
+  logoDrop.addEventListener('drop',event=>upload(async()=>{
+    const files=[...(event.dataTransfer?.files || [])];if(files.length!==1)throw new Error('Drop one company logo at a time.');
+    config.logo=await image(files[0]);
+  },$('generator-logo')));
   $('generator-illustrations').addEventListener('change',event=>upload(async()=>{const files=[...event.target.files];if(files.length+config.illustrations.length>4)throw new Error('Use at most four supporting images.');const results=await Promise.all(files.map(image));config.illustrations.push(...results);},event.target));
   $('generator-documents').addEventListener('change',event=>upload(async()=>{
     const files=[...event.target.files];if(files.length+config.documents.length>10)throw new Error('Use at most ten source documents.');
@@ -492,7 +505,7 @@
   $('generator-refresh').addEventListener('click',()=>load(true));
   window.addEventListener('nxflo-admin-tab',event=>{if(event.detail==='generator-tab')load();});
   window.addEventListener('nxflo-owner-session',event=>{csrf=event.detail.csrf;});
-  window.addEventListener('nxflo-session-ended',()=>{csrf='';loaded=false;config=null;active=null;watched=null;timedJob=null;renderTiming();$('generator-editor').hidden=false;$('generator-logo-preview').querySelector('img').removeAttribute('src');clearTimeout(pollTimer);clearTimeout(saveTimer);form.reset();$('generator-jobs').replaceChildren();$('generator-html-review').hidden=true;$('generator-review-jump').hidden=true;$('generator-html-frame').removeAttribute('src');});
+  window.addEventListener('nxflo-session-ended',()=>{csrf='';loaded=false;config=null;active=null;watched=null;timedJob=null;renderTiming();$('generator-editor').hidden=false;$('generator-logo-preview').querySelector('img').removeAttribute('src');$('generator-logo-preview').hidden=true;$('generator-logo-empty').hidden=false;$('generator-logo-help').hidden=false;logoDrop.classList.remove('has-logo');logoDrop.setAttribute('aria-label','Upload company logo');clearTimeout(pollTimer);clearTimeout(saveTimer);form.reset();$('generator-jobs').replaceChildren();$('generator-html-review').hidden=true;$('generator-review-jump').hidden=true;$('generator-html-frame').removeAttribute('src');});
   window.addEventListener('beforeunload',event=>{if(dirty || saving || uploading){event.preventDefault();event.returnValue='';}});
   workflow();
 

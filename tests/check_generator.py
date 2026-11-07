@@ -120,9 +120,24 @@ def check(widths=(1440,375,320,430)):
                         assert page.locator('[name=company]').input_value()=='Nexusflow Inc.'
                         assert page.locator('[name=website]').input_value()=='https://www.nxflo.com'
                     page.locator('[name=company]').fill('Preserved Nexusflow Inc.')
-                    logo=io.BytesIO();Image.new('RGBA',(12,12),(30,90,60,255)).save(logo,format='PNG')
-                    page.locator('#generator-logo').set_input_files({'name':'company.png','mimeType':'image/png','buffer':logo.getvalue()})
+                    assert page.locator('[name=credits]').count()==0
+                    assert page.locator('#generator-remove-logo').count()==0
+                    assert page.locator('#generator-logo').is_hidden()
+                    if width==1440:assert page.locator('#generator-logo-empty').is_visible()
+                    else:assert page.locator('#generator-logo-preview').is_visible()
+                    logo=io.BytesIO();Image.new('RGBA',(12,12),(30,90,60,0)).save(logo,format='PNG')
+                    with page.expect_file_chooser() as chooser:
+                        page.locator('#generator-logo-drop').focus();page.keyboard.press('Enter')
+                    chooser.value.set_files({'name':'company.png','mimeType':'image/png','buffer':logo.getvalue()})
                     page.locator('#generator-logo-preview').wait_for(state='visible')
+                    assert page.locator('#generator-logo-empty').is_hidden()
+                    assert page.locator('#generator-logo-help').is_hidden()
+                    assert page.locator('#generator-logo-preview img').evaluate("el=>getComputedStyle(el).backgroundColor")=='rgb(255, 255, 255)'
+                    page.locator('#generator-logo-drop').dispatch_event('dragover')
+                    assert 'is-dragging' in page.locator('#generator-logo-drop').get_attribute('class')
+                    page.evaluate("""bytes=>{const dt=new DataTransfer();dt.items.add(new File([new Uint8Array(bytes)],'dropped.png',{type:'image/png'}));document.querySelector('#generator-logo-drop').dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dt}));}""",list(logo.getvalue()))
+                    assert 'is-dragging' not in page.locator('#generator-logo-drop').get_attribute('class')
+                    if width in (1440,375):page.locator('.generator-logo-field').screenshot(path='/tmp/nxflo-logo-drop-'+str(width)+'.png')
                     page.wait_for_function("!document.querySelector('#generator-save').disabled")
                     page.locator('#generator-manage-teams').evaluate('(el)=>el.open=true')
                     assert page.locator('[data-team=research] input[data-team-field=email]').input_value()=='research@nxflo.com'
@@ -251,6 +266,9 @@ def check(widths=(1440,375,320,430)):
                     assert page.locator('[data-step=html_review]').get_attribute('data-state')=='review'
                     assert page.locator('#generator-result').is_hidden()
                     assert page.request.get(origin+'/bms_integration_hub/api/admin/generator/jobs/'+job+'/download/pdf').status==409
+                    assert page.locator('[data-step=html_review] #generator-review-jump').is_visible()
+                    assert page.locator('#generator-review-jump').count()==1
+                    if width in (1440,375):page.locator('[data-step=html_review]').screenshot(path='/tmp/nxflo-step10-'+str(width)+'.png')
                     page.locator('#generator-review-jump').click()
                     assert 'Generated test report' in page.frame_locator('#generator-html-frame').locator('body').inner_text()
                     page.reload();page.locator('#generator-html-review').wait_for(state='visible')
