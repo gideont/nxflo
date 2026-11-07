@@ -41,26 +41,35 @@ def validate_plan(plan):
     if not isinstance(groups,list) or not 1<=len(groups)<=3:raise GenerationError('Financial examples need 1–3 scenario groups.')
     ids=set()
     for group in groups:
-        if not isinstance(group,dict) or group.get('kind') not in DRIVERS or not isinstance(group.get('title'),str) or not 1<=len(group['title'])<=160:raise GenerationError('Invalid financial scenario group.')
+        if not isinstance(group,dict) or group.get('kind') not in (*DRIVERS,'schedule') or not isinstance(group.get('title'),str) or not 1<=len(group['title'])<=160:raise GenerationError('Invalid financial scenario group.')
         if not re.fullmatch(r'[A-Z]{3}',group.get('currency','')) or type(group.get('months')) is not int or not 3<=group['months']<=36:raise GenerationError('Use an explicit currency and a 3–36 month forecast.')
         if not re.fullmatch(r'[a-z][a-z0-9_-]{0,39}',group.get('id','')) or group['id'] in ids:raise GenerationError('Scenario groups need unique stable IDs.')
         ids.add(group['id'])
         scenarios=group.get('scenarios',[])
         if not isinstance(scenarios,list) or len(scenarios)!=3 or {s.get('case') for s in scenarios if isinstance(s,dict)}!={'conservative','base','optimistic'}:raise GenerationError('Provide conservative, base and optimistic hypothetical scenarios.')
         for scenario in scenarios:
-            inputs=scenario.get('inputs');expected=set(COMMON+DRIVERS[group['kind']])
+            inputs=scenario.get('inputs');expected=set(COMMON+DRIVERS.get(group['kind'],[]))
             if not isinstance(inputs,dict) or set(inputs)!=expected:raise GenerationError('Scenario inputs do not match the registered financial model.')
             for key,value in inputs.items():
                 low=-.95 if key.endswith('growth') else 0
                 high=1 if key in ('churn_rate','annual_discount_rate') else 5 if key.endswith('growth') else 1_000_000_000
                 number(value,key,low,high)
             if group['kind']=='youtube' and (type(inputs['monetization_month']) is not int or not 1<=inputs['monetization_month']<=1200):raise GenerationError('The monetization month must be explicit, including a possible delay beyond the forecast.')
+        if group['kind']=='schedule':
+            schedule=group.get('authored_schedule')
+            if not isinstance(schedule,dict) or set(schedule)!={'conservative','base','optimistic'}:raise GenerationError('An authored schedule needs all three cases.')
+            for case in schedule.values():
+                if not isinstance(case,dict) or set(case)!={'revenue','cash_costs'}:raise GenerationError('Invalid authored schedule columns.')
+                for field,values in case.items():
+                    if not isinstance(values,list) or len(values)!=group['months']:raise GenerationError('Authored monthly inputs do not match their forecast horizon.')
+                    for value in values:number(value,'authored '+field)
+            if any(case['inputs']['fixed_monthly_cost']!=0 for case in scenarios):raise GenerationError('Authored cash expenses already include monthly costs; do not count them twice.')
         participants=group.get('participants')
-        if not isinstance(participants,list) or not 1<=len(participants)<=12:raise GenerationError('Financial examples need explicit participant assumptions.')
+        if not isinstance(participants,list) or not (0 if group['kind']=='schedule' else 1)<=len(participants)<=12:raise GenerationError('Financial examples need explicit participant assumptions.')
         for p in participants:
             if not isinstance(p,dict) or set(p)!={'name','cash_contribution','profit_share'} or not isinstance(p['name'],str) or not 1<=len(p['name'])<=100:raise GenerationError('Invalid hypothetical participant.')
             number(p['cash_contribution'],'cash contribution');number(p['profit_share'],'profit share',0,1)
-        if abs(sum(D(p['profit_share']) for p in participants)-1)>D('.000001'):raise GenerationError('Hypothetical profit shares must sum to 100%.')
+        if participants and abs(sum(D(p['profit_share']) for p in participants)-1)>D('.000001'):raise GenerationError('Hypothetical profit shares must sum to 100%.')
         if not isinstance(group.get('assumption_note'),str) or not 20<=len(group['assumption_note'])<=1500:raise GenerationError('Explain the hypothetical assumptions and their provenance.')
     return plan
 
@@ -90,7 +99,10 @@ def calculate(group,scenario):
     i={k:D(v) for k,v in scenario['inputs'].items()};months=group['months'];kind=group['kind'];initial=MONEY(i['initial_investment'])
     rows=[];cumulative=-initial;customers=i.get('initial_customers',D(0));break_even=None;payback=None;peak=initial;flows=[-initial]
     for month in range(1,months+1):
-        if kind=='youtube':
+        if kind=='schedule':
+            schedule=group['authored_schedule'][scenario['case']];units=D(0)
+            revenue=D(schedule['revenue'][month-1]);costs=D(schedule['cash_costs'][month-1])
+        elif kind=='youtube':
             units=i['videos_per_month']*i['views_per_video']*(1+i['monthly_view_growth'])**(month-1)
             revenue=units/1000*i['rpm']+i['sponsorship_monthly']+i['affiliate_monthly'] if month>=i['monetization_month'] else D(0)
             costs=i['fixed_monthly_cost']+i['videos_per_month']*i['production_cost_per_video']
@@ -108,7 +120,7 @@ def calculate(group,scenario):
     rate=(1+i['annual_discount_rate'])**(D(1)/12)-1
     cash_funding=sum(D(p['cash_contribution']) for p in group['participants']);funding_gap=max(D(0),peak-cash_funding)
     distributions=[]
-    if funding_gap==0:
+    if funding_gap==0 and group['participants']:
         cash_available=max(D(0),cash_funding+cumulative);returned_capital=min(cash_funding,cash_available);surplus=max(D(0),cash_available-cash_funding)
         amounts=[]
         for p in group['participants']:
@@ -150,13 +162,17 @@ def financial_tables(group):
     base=next(result for result in group['results'] if result['case']=='base');currency=group['currency']
     assumptions=[]
     cases={scenario['case']:scenario['inputs'] for scenario in group['scenarios']}
-    for key in COMMON+DRIVERS[group['kind']]:assumptions.append([key.replace('_',' '),*[cases[case][key] for case in ('conservative','base','optimistic')]])
+    for key in COMMON+DRIVERS.get(group['kind'],[]):assumptions.append([key.replace('_',' '),*[cases[case][key] for case in ('conservative','base','optimistic')]])
+    if group['kind']=='schedule':
+        for index in range(group['months']):
+            assumptions.append(['Month '+str(index+1)+' revenue',*[group['authored_schedule'][case]['revenue'][index] for case in ('conservative','base','optimistic')]])
+            assumptions.append(['Month '+str(index+1)+' cash expenses',*[group['authored_schedule'][case]['cash_costs'][index] for case in ('conservative','base','optimistic')]])
     summary=[[result['case'],result['total_revenue'],result['net_gain'],result['roi_pct'],result['break_even_month'] or 'Never within forecast',result['maximum_funding_requirement'],result['npv']] for result in group['results']]
     result=[table('Hypothetical assumptions — '+group['title'],['Editable assumption','Conservative','Base','Optimistic'],assumptions),
             table('Calculated scenario comparison ('+currency+')',['Scenario','Revenue','Net gain','ROI %','Cash break-even month','Peak cash deficit','NPV'],summary),
             table('Base case monthly projection ('+currency+')',['Month','Revenue','Cash operating costs','Net cash flow','Cumulative cash flow','Non-cash opportunity cost','Economic profit'],[[row[k] for k in ('month','revenue','cash_costs','net_cash_flow','cumulative_cash_flow','opportunity_cost','economic_profit')] for row in base['rows']]),
             table('Return metrics — base case',['Metric','Calculated value'],[['Initial project expenditure',base['initial_investment']],['Maximum funding requirement',base['maximum_funding_requirement']],['Total non-cash opportunity cost',base['total_opportunity_cost']],['Economic gain after opportunity cost',base['economic_gain']],['Payback in months',base['payback_months']],['Monthly IRR (%)',base['monthly_irr']*100 if base['monthly_irr'] is not None else None],['Annualized IRR (%)',base['annualized_irr']*100 if base['annualized_irr'] is not None else None],['Unallocated funding gap',base['unallocated_funding_gap']]])]
-    result.append(table('Hypothetical participant funding and profit-sharing assumptions',['Participant','Cash funding ('+currency+')','Profit share (%)'],[[p['name'],p['cash_contribution'],p['profit_share']*100] for p in group['participants']]))
+    if group['participants']:result.append(table('Hypothetical participant funding and profit-sharing assumptions',['Participant','Cash funding ('+currency+')','Profit share (%)'],[[p['name'],p['cash_contribution'],p['profit_share']*100] for p in group['participants']]))
     if base['distributions']:result.append(table('Calculated participant cash distributions ('+currency+')',['Participant','Cash contributed','Cash returned','Investor return %'],[[p['name'],p['contribution'],p['distribution'],p['return_pct']] for p in base['distributions']]))
     return result
 
@@ -196,12 +212,18 @@ def donut(title,values,labels):
 
 
 def sensitivity(group):
-    scenario=deepcopy(next(s for s in group['scenarios'] if s['case']=='base'));key={'youtube':'views_per_video','saas':'new_customers_per_month','generic':'initial_units'}[group['kind']]
+    scenario=deepcopy(next(s for s in group['scenarios'] if s['case']=='base'));key={'youtube':'views_per_video','saas':'new_customers_per_month','generic':'initial_units'}.get(group['kind'])
     demands=(.1,.5,1,1.25,1.5);costs=(.5,1,1.5,2);rows=[];cells=[]
     for y,cost in enumerate(costs):
         for x,demand in enumerate(demands):
-            changed=deepcopy(scenario);changed['inputs'][key]*=demand;changed['inputs']['fixed_monthly_cost']*=cost
-            value=calculate(group,changed)['roi_pct'];rows.append([cost,demand,value]);cells.append((x,y,value))
+            changed=deepcopy(scenario);changed_group=group
+            if group['kind']=='schedule':
+                changed_group=deepcopy(group);schedule=changed_group['authored_schedule']['base']
+                schedule['revenue']=[value*demand for value in schedule['revenue']]
+                schedule['cash_costs']=[value*cost for value in schedule['cash_costs']]
+            else:
+                changed['inputs'][key]*=demand;changed['inputs']['fixed_monthly_cost']*=cost
+            value=calculate(changed_group,changed)['roi_pct'];rows.append([cost,demand,value]);cells.append((x,y,value))
     positive=max([value for _,_,value in cells if value is not None and value>0] or [1])
     negative=max([-value for _,_,value in cells if value is not None and value<0] or [1])
     def palette(value):

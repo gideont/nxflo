@@ -75,36 +75,40 @@ class IntentPipeline:
         if not thesis.intersection(chapters[0]['author_refs']):raise GenerationError('The outline does not open on the author\'s thesis.')
         financials=None
         if contract['financial_examples']:
-            prompt=('Plan clearly hypothetical WORKED financial examples for this author\'s product. '+instructions(c)+context(s)+
-                    '\nReturn financial-plan JSON: groups with unique id, title, kind (youtube, saas or generic), currency, months, assumption_note, participants and conservative/base/optimistic scenarios. '
-                    'Use only calculator inputs, never output metrics or invented empirical evidence. Distinguish assumptions supplied by the author from additional illustrative assumptions in assumption_note. '
-                    'Include a 12-month YouTube example and a SaaS example when both occur in the original brief; show a 90-day pilot using the first three months. '
-                    'Choose genuinely different cases, including a loss-making conservative case and a feasible positive case. '
-                    'Initial investment is project startup expenditure; participant cash is financing, never revenue. Include working-capital funding sufficient for the base case. '
-                    'Profit shares are explicit illustrative agreements, not inferred from hours or cash. Opportunity-cost hours are non-cash and must not be counted twice. '
-                    'Delay YouTube monetization; zero revenue before that month. Define all inputs as editable assumptions, not observations. '
-                    'Annual discount rate and all growth/churn/profit shares are fractions, not percentages. No tax, debt, terminal value or depreciation unless a future registered model supports them. '
-                    'Common inputs: initial_investment, fixed_monthly_cost, hours_per_month, hourly_opportunity_value, annual_discount_rate. '
-                    'YouTube inputs: videos_per_month, views_per_video, monthly_view_growth, rpm, monetization_month, production_cost_per_video, sponsorship_monthly, affiliate_monthly. '
-                    'SaaS inputs: initial_customers, new_customers_per_month, monthly_acquisition_growth, churn_rate, monthly_subscription, variable_cost_per_customer. '
-                    'Generic inputs: initial_units, monthly_unit_growth, unit_price, variable_cost_per_unit. '
-                    'Participants: name, cash_contribution, profit_share. For sample identities use neutral Partner A/B/C, not invented real people.')
-            plan_inputs=self.models.many('draft',[prompt],'financial-plan')[0]
-            try:
-                financials=self.validate_financial_plan(plan_inputs,s)
-            except GenerationError as error:
-                self.e.message('Repairing invalid financial planning inputs once; completed requests remain saved.')
-                repair_prompt=(prompt+'\nThe previous candidate failed deterministic validation: '+str(error)+
-                               '\nPrevious candidate: '+json.dumps(plan_inputs)+
-                               '\nReturn a corrected COMPLETE financial plan. Use only 12–36 month groups; the calculator derives each 90-day pilot from its first three months, so do not add a separate pilot group. '
-                               'Each monetization_month must be a positive integer; it may lie beyond the forecast (meaning no monetized revenue inside it). '
-                               'Calculate base-case peak funding needs and disclose sufficient participant financing. Preserve author-supplied assumptions; distinguish any additional illustration rather than silently changing them. '
-                               'Include every requested business model and internally ordered scenarios. Never invent empirical data or output metrics.')
-                repaired=self.models.many('draft',[repair_prompt],'financial-plan-repair')[0]
-                try:financials=self.validate_financial_plan(repaired,s)
-                except GenerationError as repaired_error:
-                    self.e.checkpoint({**s,'planning_errors':[str(error),str(repaired_error)]})
-                    raise GenerationError('Financial planning failed its bounded repair: '+str(repaired_error)) from None
+            from .generation_authored_finance import authored_financial_plan
+            authored=authored_financial_plan(s['author_original']) if contract['mode']=='content_preserving_rewrite' else None
+            if authored:financials=self.validate_financial_plan(authored,s)
+            else:
+                prompt=('Plan clearly hypothetical WORKED financial examples for this author\'s product. '+instructions(c)+context(s)+
+                        '\nReturn financial-plan JSON: groups with unique id, title, kind (youtube, saas or generic), currency, months, assumption_note, participants and conservative/base/optimistic scenarios. '
+                        'Use only calculator inputs, never output metrics or invented empirical evidence. Distinguish assumptions supplied by the author from additional illustrative assumptions in assumption_note. '
+                        'Include a 12-month YouTube example and a SaaS example when both occur in the original brief; show a 90-day pilot using the first three months. '
+                        'Choose genuinely different cases, including a loss-making conservative case and a feasible positive case. '
+                        'Initial investment is project startup expenditure; participant cash is financing, never revenue. Include working-capital funding sufficient for the base case. '
+                        'Profit shares are explicit illustrative agreements, not inferred from hours or cash. Opportunity-cost hours are non-cash and must not be counted twice. '
+                        'Delay YouTube monetization; zero revenue before that month. Define all inputs as editable assumptions, not observations. '
+                        'Annual discount rate and all growth/churn/profit shares are fractions, not percentages. No tax, debt, terminal value or depreciation unless a future registered model supports them. '
+                        'Common inputs: initial_investment, fixed_monthly_cost, hours_per_month, hourly_opportunity_value, annual_discount_rate. '
+                        'YouTube inputs: videos_per_month, views_per_video, monthly_view_growth, rpm, monetization_month, production_cost_per_video, sponsorship_monthly, affiliate_monthly. '
+                        'SaaS inputs: initial_customers, new_customers_per_month, monthly_acquisition_growth, churn_rate, monthly_subscription, variable_cost_per_customer. '
+                        'Generic inputs: initial_units, monthly_unit_growth, unit_price, variable_cost_per_unit. '
+                        'Participants: name, cash_contribution, profit_share. For sample identities use neutral Partner A/B/C, not invented real people.')
+                plan_inputs=self.models.many('draft',[prompt],'financial-plan')[0]
+                try:
+                    financials=self.validate_financial_plan(plan_inputs,s)
+                except GenerationError as error:
+                    self.e.message('Repairing invalid financial planning inputs once; completed requests remain saved.')
+                    repair_prompt=(prompt+'\nThe previous candidate failed deterministic validation: '+str(error)+
+                                   '\nPrevious candidate: '+json.dumps(plan_inputs)+
+                                   '\nReturn a corrected COMPLETE financial plan. Use only 12–36 month groups; the calculator derives each 90-day pilot from its first three months, so do not add a separate pilot group. '
+                                   'Each monetization_month must be a positive integer; it may lie beyond the forecast (meaning no monetized revenue inside it). '
+                                   'Calculate base-case peak funding needs and disclose sufficient participant financing. Preserve author-supplied assumptions; distinguish any additional illustration rather than silently changing them. '
+                                   'Include every requested business model and internally ordered scenarios. Never invent empirical data or output metrics.')
+                    repaired=self.models.many('draft',[repair_prompt],'financial-plan-repair')[0]
+                    try:financials=self.validate_financial_plan(repaired,s)
+                    except GenerationError as repaired_error:
+                        self.e.checkpoint({**s,'planning_errors':[str(error),str(repaired_error)]})
+                        raise GenerationError('Financial planning failed its bounded repair: '+str(repaired_error)) from None
         return {'outline':plan,'financials':financials,'intent_audits':s['intent_audits']+[{'stage':'outline','source_hash':contract['source_hash'],'passed':True,'plan_hash':digest(plan)}]}
 
     def validate_financial_plan(self,plan_inputs,s):
@@ -116,8 +120,7 @@ class IntentPipeline:
         if 'both profitable and unprofitable' in s['author_original'].casefold() and not (min(outcomes)<0<max(outcomes)):raise GenerationError('The author requested profitable and unprofitable worked cases; the financial plan omitted one outcome.')
         kinds={group['kind'] for group in financials['groups']};original=s['author_original'].casefold()
         for marker,kind in [('youtube','youtube'),('saas','saas')]:
-            if marker in original and kind not in kinds:raise GenerationError('The financial plan omitted the author\'s '+marker+' use case.')
-        if any(next(r for r in group['results'] if r['case']=='base')['unallocated_funding_gap']>0 for group in financials['groups']):raise GenerationError('The illustrative base case has an unfunded cash deficit. Its funding assumptions must be explicit and sufficient.')
+            if marker in original and kind not in kinds and 'schedule' not in kinds:raise GenerationError('The financial plan omitted the author\'s '+marker+' use case.')
         if any(group['kind']=='youtube' and next(case for case in group['scenarios'] if case['case']=='base')['inputs']['monetization_month']<2 for group in financials['groups']):raise GenerationError('The YouTube pilot must include an explicit pre-monetization period.')
         if any(group['months']<12 for group in financials['groups']):raise GenerationError('Worked investment examples must include the 12-month forecast and its 90-day pilot.')
         return financials
@@ -127,6 +130,7 @@ class IntentPipeline:
         financial_summary=[]
         if financials:
             financial_summary=[{'id':g['id'],'title':g['title'],'assumption_note':g['assumption_note'],'scenarios':g['scenarios'],
+                                **({'authored_schedule':g['authored_schedule']} if 'authored_schedule' in g else {}),
                                 'results':[{k:v for k,v in r.items() if k not in ('rows','cash_flows')} for r in g['results']]} for g in financials['groups']]
         return (instructions(self.config)+context(s,plan['author_refs'])+evidence_context(s['sources'])+
                 '\nVisual planning: When charts are enabled, aim for 1–2 useful charts or graphs per 1–2 pages, where appropriate. Calculator figures are inserted automatically; do not duplicate or fabricate them. Use source-backed empirical figures only. '+

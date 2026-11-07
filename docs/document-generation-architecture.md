@@ -33,6 +33,8 @@ The saved gate fingerprint binds the manuscript, author contract and financial m
 
 ## Financial calculation contract
 
+Content-preserving rewrites first recognize explicit hypothetical USD monthly schedules using the original expense, base-case cash-flow and three-scenario revenue table columns. They retain exact source spans, check monthly arithmetic and totals, and calculate directly from those inputs instead of fitting a replacement growth curve. Startup expenses are counted once. Unsupported table layouts continue through input planning. Missing financing is reported as a calculated funding gap; it does not invalidate the business-case analysis. No participant allocation or distribution is invented.
+
 Registered YouTube, SaaS and generic unit-based models support conservative, base and optimistic cases over 3–36 monthly periods. Worked investment examples include a 12-month forecast and a three-period, 90-day pilot. Inputs are bounded and finite; currencies and time periods are explicit. Cash amounts are rounded consistently to cents.
 
 - Month zero contains initial project expenditure. Monthly receipts and operating cash payments occur at period end.
