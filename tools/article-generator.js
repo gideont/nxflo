@@ -364,6 +364,7 @@
     $('generator-workflow-status').textContent=(job.worker_online===false && running?'Worker heartbeat is missing; live progress is unavailable. ':'')+(job.message || job.error || job.status);
     const intentLabels={summarize:'Preserve intent & evidence',outline:'Plan structure & examples',review:'Review intent & accuracy',assemble:'Quality gate & document layout'};
     const reviewJump=$('generator-review-jump'),reviewFocused=document.activeElement===reviewJump;reviewJump.remove();
+    const resumeButton=$('generator-resume'),resumeFocused=document.activeElement===resumeButton;resumeButton.remove();
     $('generator-steps').replaceChildren(...steps.map(([key,label],i)=>{
       if(job.pipeline_version===2 || job.status==='idle')label=intentLabels[key] || label;
       const currentState=job.worker_online===false?'stalled':job.wait_state?.label || job.batch_wait || job.recovery?.retry_at?'waiting':job.status==='queued'?'queued':'running';
@@ -400,8 +401,13 @@
     }else{$('generator-html-frame').removeAttribute('src');$('generator-html-status').textContent='';}
     $('generator-result').hidden=!done;$('generator-cancel').hidden=!running;
     const recovery=job.recovery || {},retryWait=recovery.retry_at?Math.max(0,Math.ceil(recovery.retry_at-(job.server_time || Date.now()/1000))):0;
-    $('generator-resume').hidden=!recovery.can_resume || (running && (!job.batch_wait || recovery.retry_at));
-    $('generator-resume').textContent=running?'Check batch now':'Resume generation';
+    resumeButton.hidden=!recovery.can_resume || (running && (!job.batch_wait || recovery.retry_at));
+    resumeButton.textContent=running?'Check batch now':'Resume';
+    resumeButton.setAttribute('aria-label',running?'Check batch now':'Resume generation');
+    const resumeStep=$('generator-steps').querySelector('[data-step="'+job.step+'"]');
+    if(!resumeButton.hidden && resumeStep){resumeStep.append(resumeButton);resumeStep.classList.add('has-resume');}
+    else $('generator-cancel').before(resumeButton);
+    if(resumeFocused && !resumeButton.hidden)resumeButton.focus({preventScroll:true});
     $('generator-recovery-status').hidden=!recovery.blocked_reason && !recovery.retry_at && !['failed','cancelled'].includes(job.status);
     $('generator-recovery-status').textContent=recovery.blocked_reason || (recovery.retry_at?'Automatic recovery · attempt '+recovery.attempts+' of 3 · '+(retryWait?'retry in '+retryWait+'s.':'retry due now.')+' Completed stages and saved responses will be reused.':recovery.can_resume?'Resume continues this version from saved progress. Completed work and existing Batch requests are reused.':'');
     $('generator-cost-actual').textContent=job.id?(job.config?.provider==='databricks'?'Databricks usage is billed in your workspace; USD charges are not returned by this endpoint.':job.cost==null?'Model cost: not yet reported by OpenRouter.':'Reported usage cost so far (OpenRouter + BYOK): '+usd(Number(job.cost)))+(job.unreported_calls?' · Some completed charges have not been reported.':'')+(job.warnings?.length?' · '+job.warnings.length+' review/source warnings.':''):'';

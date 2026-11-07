@@ -92,6 +92,38 @@ def narrative_headings(structure):
     return [entry for entry in structure if entry['level']==primary]
 
 
+def source_owned_outline(plan, contract):
+    """Route rewrite work by original spans, never by fallible model coverage lists.
+
+    This assigns drafting obligations; it is not evidence that the draft meets
+    them. Prose coverage and publication checks remain independent gates.
+    """
+    headings=contract.get('narrative_structure',[])
+    if contract['mode']!='content_preserving_rewrite' or not headings:return plan
+    chapters=plan.get('chapters')
+    if not isinstance(chapters,list):raise GenerationError('Invalid intent-aware outline.')
+    known={item['id'] for item in contract['items']}
+    for ch in chapters:
+        if not isinstance(ch,dict) or not isinstance(ch.get('brief'),str) or not isinstance(ch.get('author_refs'),list) or any(not isinstance(ref,str) or ref not in known for ref in ch['author_refs']) or not isinstance(ch.get('section_keys'),list) or any(not isinstance(key,str) for key in ch['section_keys']) or not isinstance(ch.get('charts_needed'),list) or any(not isinstance(chart,str) for chart in ch['charts_needed']):
+            raise GenerationError('Outline contains invalid author-intent assignments.')
+    def owner(position):
+        return max([i for i,h in enumerate(headings) if h['start']<=position] or [0])
+    result=[]
+    for i,heading in enumerate(headings):
+        assigned=[item for item in contract['items'] if owner(item['start'])==i]
+        suggestions=[ch for ch in chapters if heading['id'] in ch['section_keys']]
+        # Preserve subordinate figure/table requirements and the closing call to
+        # action under their original body section, including omitted anchors.
+        sections=[h['id'] for h in contract['structure'] if owner(h['start'])==i]
+        brief='Rewrite this original section faithfully, including its examples, tables and visual requirements.'
+        if suggestions:brief+=' Planning notes: '+' '.join(ch['brief'] for ch in suggestions)
+        brief+=' Required original messages: '+'; '.join(item['label'] for item in assigned)
+        charts=list(dict.fromkeys(chart for ch in suggestions for chart in ch['charts_needed']))
+        result.append({'title':re.sub(r'^\d+[.)]\s*','',heading['title']),'brief':brief,
+                       'charts_needed':charts,'section_keys':sections,'author_refs':[item['id'] for item in assigned]})
+    return {**plan,'chapters':result}
+
+
 def extraction_prompt(chunk,mode):
     return ('Extract the author\'s thesis, intended audience (when stated), key arguments, useful examples, key messages and narrative structure. '
             'Do not critique, fact-check, invent an audience or substitute a different thesis. Return JSON {"items":[{"role":"thesis|audience|argument|example|message",'

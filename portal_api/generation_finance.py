@@ -54,7 +54,7 @@ def validate_plan(plan):
                 low=-.95 if key.endswith('growth') else 0
                 high=1 if key in ('churn_rate','annual_discount_rate') else 5 if key.endswith('growth') else 1_000_000_000
                 number(value,key,low,high)
-            if group['kind']=='youtube' and (type(inputs['monetization_month']) is not int or not 1<=inputs['monetization_month']<=group['months']+1):raise GenerationError('The monetization month must be explicit, including a possible delay beyond the forecast.')
+            if group['kind']=='youtube' and (type(inputs['monetization_month']) is not int or not 1<=inputs['monetization_month']<=1200):raise GenerationError('The monetization month must be explicit, including a possible delay beyond the forecast.')
         participants=group.get('participants')
         if not isinstance(participants,list) or not 1<=len(participants)<=12:raise GenerationError('Financial examples need explicit participant assumptions.')
         for p in participants:

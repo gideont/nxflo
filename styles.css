@@ -1035,3 +1035,11 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 .generator-workflow:has([data-step="html_review"][data-state="review"]) { position:static; }
 
 .generator-file-list li.generator-source-row{flex-wrap:wrap}.generator-source-row>span{flex:1 1 100%;min-width:0;overflow-wrap:anywhere}.generator-form select.generator-source-role{flex:1 1 150px;width:auto;max-width:200px;font-size:12px}
+
+/* Keep recovery beside the interrupted step, including narrow mobile cards. */
+.generator-steps li.has-resume { display:grid;grid-template-columns:31px minmax(0,1fr) auto;gap:10px; }
+.generator-steps .has-resume .generator-step-copy { grid-template-columns:minmax(0,1fr); }
+.generator-steps .has-resume .generator-step-copy .generator-step-elapsed { text-align:left;white-space:normal; }
+.generator-steps #generator-resume { min-height:44px;padding:8px 10px;white-space:normal;max-width:100px; }
+
+.generator-steps .has-resume .generator-step-copy strong { white-space:normal;overflow-wrap:anywhere;min-width:0; }

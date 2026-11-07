@@ -69,9 +69,34 @@ def check():
                         paper.locator('.worked-financials h3').scroll_into_view_if_needed();paper.screenshot(path='/tmp/nxflo-intent-paper-'+str(width)+'.png')
                         paper.locator('.calculated-figure').nth(5).scroll_into_view_if_needed();paper.screenshot(path='/tmp/nxflo-intent-heatmap-'+str(width)+'.png')
                         assert paper.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth')
+                    # A failed planning step owns its recovery action, at every viewport.
+                    resumes=[]
+                    job_snapshot=page.request.get(origin+'/bms_integration_hub/api/admin/generator/jobs/'+fixture.id).json()
+                    def failed_job(route):
+                        job=json.loads(json.dumps(job_snapshot))
+                        job.update(status='failed',step='outline',error='Planning needs recovery.',message='Planning needs recovery.')
+                        job['events']=[event for event in job['events'] if event['step'] in ('collect','summarize')]
+                        job['recovery']={'can_resume':True,'blocked_reason':''}
+                        route.fulfill(status=200,json=job)
+                    def resume_job(route):
+                        resumes.append(True);route.fulfill(status=202,json={'id':fixture.id,'status':'queued'})
+                    page.route('**/jobs/'+fixture.id,failed_job)
+                    page.route('**/jobs/'+fixture.id+'/resume',resume_job)
+                    page.reload()
+                    resume=page.locator('[data-step=outline][data-state=failed] #generator-resume')
+                    resume.wait_for(state='visible');resume.scroll_into_view_if_needed()
+                    button_box=resume.bounding_box();copy_box=page.locator('[data-step=outline] .generator-step-copy').bounding_box()
+                    assert button_box['x']>=copy_box['x']+copy_box['width']-1,(width,button_box,copy_box)
+                    assert page.locator('[data-step=outline] strong').evaluate('el=>el.scrollWidth<=el.clientWidth'),width
+                    assert button_box['height']>=44
+                    assert page.locator('#generator-resume').count()==1
+                    assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth'),width
+                    if width in (1440,375):page.screenshot(path='/tmp/nxflo-planning-recovery-'+str(width)+'.png')
+                    resume.click();page.wait_for_timeout(200);assert resumes
                     if width<=430:
                         page.locator('.nav-tools-toggle').click();assert page.locator('#tools-menu').is_visible()
                     assert not errors,errors
+                    page.unroute_all(behavior='wait')
                     ctx.close()
                 browser.close()
         finally:server.shutdown()
