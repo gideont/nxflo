@@ -22,7 +22,20 @@ docker network inspect "$NETWORK" >/dev/null 2>&1 || docker network create "$NET
 docker volume inspect "$VOLUME" >/dev/null 2>&1 || docker volume create "$VOLUME" >/dev/null
 
 previous_worker=$(docker inspect "$WORKER_CONTAINER" --format '{{.Image}}' 2>/dev/null || true)
-docker stop "$WORKER_CONTAINER" >/dev/null 2>&1 || true
+if [ "$(docker inspect "$WORKER_CONTAINER" --format '{{.State.Running}}' 2>/dev/null || true)" = "true" ]; then
+  if docker exec "$WORKER_CONTAINER" python -c "import importlib.util; raise SystemExit(0 if importlib.util.find_spec('portal_api.generation_shutdown') else 1)"; then
+    echo "Draining document worker; allowing its current request to finish and save."
+    # Never force-kill a billable call. Individual operations have bounded
+    # deadlines; SIGTERM asks the worker to stop at a durable boundary.
+    docker stop --timeout -1 "$WORKER_CONTAINER" >/dev/null
+  else
+    # One-time upgrade: a legacy PID 1 ignores SIGTERM. Only stop it after
+    # verifying that there is no running or queued work to interrupt.
+    docker exec "$WORKER_CONTAINER" python -c "import os,sqlite3; c=sqlite3.connect(os.environ['BMS_DATABASE_PATH']); assert not c.execute(\"SELECT count(*) FROM generator_jobs WHERE status IN ('running','queued')\").fetchone()[0], 'The old worker has active work. Wait for it to finish before deploying.'"
+    echo "Replacing idle legacy document worker."
+    docker stop --timeout 10 "$WORKER_CONTAINER" >/dev/null
+  fi
+fi
 docker rm "$WORKER_CONTAINER" >/dev/null 2>&1 || true
 
 backup_stamp=$(date -u +%Y%m%dT%H%M%S%N)

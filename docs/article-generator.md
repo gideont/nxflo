@@ -79,3 +79,7 @@ Native web-search loops are disabled. Each job permits one paid Parallel Turbo q
 Cost records now retain OpenRouter credit charges separately from `upstream_inference_cost` for BYOK. The reported total adds the provider amount only when BYOK is true, avoiding double-counting ordinary OpenRouter inference. Missing provider costs remain unverified; generation IDs are retained and read-only billing metadata is queried when needed. The UI shows the breakdown and billing reference. Historical native-search charges predate the limit and cannot be reversed by changing the setting.
 
 Planning estimates include a separate bounded-search allowance, reference-link source-volume assumptions and per-source summary overhead. Once collection finishes, observed source characters/chunks replace assumptions for the matching form, and reconciled web charges replace estimates. These are usage estimates rather than a spending cap for the whole document.
+
+### Deployment recovery
+
+The worker drains on SIGTERM: it finishes the current bounded request, stores its result and billing metadata, then pauses at a durable request or graph boundary. Deployment waits for that exit without force-killing the worker. The replacement reuses completed responses and resumes the saved checkpoint. The first upgrade from a worker without draining refuses to interrupt running or queued jobs. An already lost response still requires provider reconciliation or explicit authorization before repeating its request.

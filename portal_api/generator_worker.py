@@ -12,6 +12,7 @@ from .generation_sources import fetch_reference,transcript
 from .generation_document import chapter,chart_svg,assemble,export_pdf
 from .generation_tasks import monitored_call
 from .generation_recovery import recover_failure
+from . import generation_shutdown as shutdown
 
 STEPS=['collect','summarize','outline','draft','review','rewrite','polish','charts','assemble','html_review','pdf','deliver']
 CHAPTER_SCHEMA='Return JSON {"title":"...","paragraphs":["plain text paragraphs with [B1], [D1] or [R1] source citations"],"takeaway":"...","charts":[{"kind":"bar or line","title":"...","labels":["..."],"values":[1.0],"unit":"...","source_id":"B1","evidence":["exact source excerpt containing the corresponding number"]}]}. No HTML or Markdown. Use charts only when requested and supported by exact numerical source evidence. Never invent chart values.'
@@ -65,6 +66,7 @@ class Engine:
         if web_step:collected+=1
         self.source_progress(max(1,len(urls)+len(links['youtube'])+web_step),collected)
         for i,url in enumerate(links['youtube']):
+            shutdown.checkpoint()
             self.models.check();source={'id':'Y'+str(i+1),'label':'YouTube transcript','url':url,'text':''}
             try:
                 if i>=50 or budget>=8000000:raise GenerationError('Collection budget reached; upload selected transcript excerpts.')
@@ -76,6 +78,7 @@ class Engine:
             sources.append(source)
             collected+=1;self.source_progress(max(1,len(urls)+len(links['youtube'])+web_step),collected)
         for i,url in enumerate(urls):
+            shutdown.checkpoint()
             self.models.check();source={'id':'R'+str(i+1),'label':'Reference '+str(i+1),'url':url,'text':''}
             try:
                 if i>=200 or budget>=8000000:raise GenerationError('Collection budget reached; upload selected reference excerpts.')
@@ -188,6 +191,7 @@ class Engine:
             return STEPS[STEPS.index(name)+1] if name!='deliver' else 'end'
         def node(name):
             def execute(s):
+                shutdown.checkpoint()
                 self.models.check();self.db.execute('UPDATE generator_jobs SET step=? WHERE id=?',(name,self.id));self.message('Running '+name+(' · pass '+str(s.get('passes',0)+1) if name=='review' else '')+'.')
                 self.db.execute("UPDATE generator_jobs SET work_progress='{}' WHERE id=?",(self.id,))
                 token=name+':'+str(s.get('passes',0))
@@ -207,6 +211,8 @@ class Engine:
         for step in STEPS:graph.add_conditional_edges(step,route,dest)
         try:graph.compile().invoke(self.state,{'recursion_limit':60})
         except PendingBatch:self.db.execute("UPDATE generator_jobs SET status='queued',recovery='{}',next_run_at=?,updated_at=? WHERE id=? AND status!='cancelled'",(time.time()+60,db.now(),self.id))
+        except shutdown.WorkerDraining:
+            self.db.execute("UPDATE generator_jobs SET status='queued',message='Deployment pause: saved progress will resume after the worker restarts.',next_run_at=0,updated_at=? WHERE id=? AND status='running'",(db.now(),self.id))
         except (Cancelled, HTMLReviewPaused):pass
         except Exception as error:
             message=str(error) if isinstance(error,GenerationError) else 'Generation failed during the '+self.db.execute('SELECT step FROM generator_jobs WHERE id=?',(self.id,)).fetchone()[0]+' stage.'
@@ -217,16 +223,19 @@ class Engine:
 
 
 def main():
+    shutdown.install_handlers()
     path=os.environ.get('BMS_DATABASE_PATH','/data/bms_hub.sqlite3');lock=open(Path(path).parent/'.generator-worker.lock','a')
     try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     except BlockingIOError:raise SystemExit('A generation worker is already running.')
     connection=db.connect(path);connection.execute("UPDATE generator_jobs SET status='queued' WHERE status='running'")
-    while True:
+    while not shutdown.requested():
         connection.execute("INSERT INTO generator_meta VALUES('heartbeat',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",(str(time.time()),))
         with db.transaction(connection):
             row=connection.execute("SELECT id FROM generator_jobs WHERE status='queued' AND next_run_at<=? ORDER BY created_at LIMIT 1",(time.time(),)).fetchone()
             if row:connection.execute("UPDATE generator_jobs SET status='running',updated_at=? WHERE id=?",(db.now(),row['id']))
         if row:Engine(path,row['id']).run()
         else:time.sleep(2)
+    connection.close()
+    lock.close()
 
 if __name__=='__main__':main()
