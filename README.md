@@ -62,3 +62,19 @@ plus `--screenshots /tmp/nxflo-home-review` for visual review.
 Run `python3 tests/check_footer.py` to compare footer content and styling across
 all pages, check keyboard access and touch targets, and catch mobile overflow.
 It accepts the same browser and URL options, plus `--screenshots /tmp/nxflo-footer-review`.
+
+### Private website analytics
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for collection, SQLite schema, metric definitions, dashboard freshness, retention, and backup behavior.
+
+Open `https://www.nxflo.com/admin.html` (or `/admin`) and sign in with the configured `BMS_OWNER_EMAIL` Google account. Google One Tap and the Google sign-in button reuse the portal's existing OAuth client and server-verified session. No public navigation link is added. The public login shell contains no analytics; the reporting API requires an active owner session, including for direct requests.
+
+The Analytics tab shows daily visitors and page views for the last three or six calendar months, with separate lines for the top pages (eight by default), a ranked legend, and per-page daily CSV export. The top-page count is configurable from 1 to 20 and saved in SQLite across sessions and browsers. Dates use `America/Vancouver`. Collection began when analytics was first deployed; charts, tables, and exports omit dates before collection began and grow daily within the selected rolling window. Today's counts are partial. Page views count public document loads; visitors count distinct browsers each day, deduplicated across pages.
+
+Collection runs from shared `script.js` and posts only the page path (no query strings, form contents, file data or referrers). A first-party, HttpOnly, Secure, SameSite cookie identifies the browser for counting, and only a daily HMAC is stored in SQLite. No IP addresses or raw browser IDs are stored in analytics tables. Daily records are retained for 400 days in the existing persistent `nxflo-bms-data` Docker volume and are included in existing database backups. Standard webserver access logs are separate from these analytics records. Cookie clearing, blocking, multiple devices and JavaScript blocking affect accuracy. Owner visits to public pages count, including while signed in. Admin pages, known bots, DNT and GPC are excluded; automated traffic can still evade detection. Collection is rate-limited by nginx.
+
+Run `tests/test_analytics.py` with the API dependencies installed for access-control, daily counting and persistence checks. `tests/check_analytics.py [base-url]` exercises the admin with synthetic test responses at 1440, 375, 320 and 430px; it never injects demo records into production.
+
+### Private Doc Generator
+
+The owner admin includes a saved document form, real LangGraph generation workflow, and private PDF/HTML downloads. The API and separate `nxflo-generator-worker` share the persistent data volume. Put `OPENROUTER_API_KEY` in the ignored `.env`; both containers receive it during deployment. See [docs/article-generator.md](docs/article-generator.md) for source processing, Batch timing, review passes, billing, and operations.

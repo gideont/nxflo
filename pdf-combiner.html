@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- include:site-seo -->
+    <link rel="stylesheet" href="styles.css">
+    <script src="tools/vendor/pdf-lib-1.17.1.min.js" defer></script>
+    <script src="tools/pdf-combiner.js" defer></script>
+</head>
+<body>
+    <a class="skip-link" href="#combiner">Skip to PDF Merge</a>
+    <!-- include:site-header -->
+    <main id="main" class="utility-main">
+        <div class="container tool-container">
+            <a class="home-services-link" href="tools.html">← Free tools</a>
+            <div class="tool-intro">
+                <p class="eyebrow">Free · No sign-up · In your browser</p>
+                <h1>PDF Merge</h1>
+                <p>Drop your files in order. Give your PDF a name. Combine and download.</p>
+            </div>
+            <form id="combiner" class="tool-panel" aria-label="PDF Merge">
+                <fieldset id="tool-controls">
+                    <div class="tool-step">
+                        <label for="page-count"><span class="tool-step-number">1</span> How many pages are you combining?</label>
+                        <p id="count-help" class="tool-help">Choose 1–50 numbered boxes. Add one JPG or PDF to each box. A multi-page PDF adds all its pages.</p>
+                        <select id="page-count" required aria-describedby="count-help">
+                            <option value="">Choose a number</option>
+                        </select>
+                    </div>
+                    <div id="upload-step" class="tool-step" hidden>
+                        <h2><span class="tool-step-number">2</span> Add your files in order</h2>
+                        <p class="tool-help">Drag and drop, or tap a box to choose a file. JPG / JPEG and PDF only. Up to 20 MB per file, 100 MB total, and 200 output pages.</p>
+                        <div id="page-slots" class="page-slots"></div>
+                        <p id="file-summary" class="tool-help" role="status" aria-live="polite"></p>
+                    </div>
+                    <div id="filename-step" class="tool-step" hidden>
+                        <label for="pdf-name"><span class="tool-step-number">3</span> Name your combined PDF</label>
+                        <div class="filename-field"><input id="pdf-name" type="text" placeholder="e.g. project-documents" maxlength="100" required autocomplete="off" aria-describedby="filename-help"><span>.pdf</span></div>
+                        <p id="filename-help" class="tool-help">The .pdf extension is added automatically.</p>
+                    </div>
+                    <aside class="tool-notice" aria-label="Privacy and disclaimer">
+                        <strong>Please do not use sensitive or confidential information.</strong>
+                        <p>Your documents are processed in this browser. They are not uploaded to our servers, and Nexusflow does not keep copies. Keep your original files and check the downloaded PDF. You use this tool at your own risk; Nexusflow accepts no liability for documents lost or damaged during processing, download, or network transmission.</p>
+                    </aside>
+                    <div class="tool-actions"><button id="combine" class="btn btn-primary" type="submit" disabled>Combine PDF</button><button id="clear-files" class="btn btn-secondary" type="button">Start over</button></div>
+                </fieldset>
+                <p id="tool-status" class="tool-status" role="status" aria-live="polite" aria-atomic="true"></p>
+                <div id="download-result" class="tool-result" hidden>
+                    <h2>Your PDF is ready.</h2>
+                    <p id="result-details"></p>
+                    <a id="download-pdf" class="btn btn-primary">Download PDF</a>
+                    <p class="tool-help">Save it now. This download link is available only in this tab until you change your files or start over.</p>
+                </div>
+            </form>
+            <noscript><p class="tool-notice">Please enable JavaScript to combine files in your browser.</p></noscript>
+        </div>
+    </main>
+    <!-- include:site-footer -->
+    <script src="script.js"></script>
+</body>
+</html>

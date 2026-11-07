@@ -1,0 +1,61 @@
+/* Utilities are scoped to the viewer; Nexusflow owns the shared page styles. */
+@tailwind utilities;
+#csv-viewer { min-width: 0; }
+#csv-viewer *, #csv-viewer ::before, #csv-viewer ::after { border-style: solid; border-width: 0; border-color: #dce3ec; }
+#csv-viewer button, #csv-viewer input, #csv-viewer select { font: inherit; }
+#csv-viewer button { cursor: pointer; background-color: transparent; }
+#csv-viewer button:disabled { cursor: not-allowed; }
+#csv-viewer svg { display: block; flex-shrink: 0; }
+#csv-viewer .csv-workspace { padding: 0; background: transparent; }
+#csv-viewer .csv-workspace.dark { padding: 1.25rem; border-radius: 8px; background: #0c192c; }
+#csv-viewer .csv-layout { display: grid; grid-template-columns: minmax(0,1fr) 250px; align-items: start; gap: 1rem; }
+#csv-viewer .csv-layout.is-collapsed { grid-template-columns: minmax(0,1fr) 48px; }
+#csv-viewer .csv-viewport { height: 520px; overflow: auto; min-width: 0; }
+#csv-viewer .csv-toolbar { flex-direction: column; align-items: flex-start; }
+#csv-viewer .csv-toolbar > div { max-width: 100%; }
+#csv-viewer button, #csv-viewer select, #csv-viewer input[type=color] { min-height: 44px; }
+#csv-viewer button[role=columnheader] { font-size: .875rem; }
+#csv-viewer [role=separator] { touch-action: none; }
+#csv-viewer .csv-dialog { max-height: 90vh; overflow-y: auto; }
+#csv-viewer .csv-dialog p { overflow-wrap: anywhere; }
+@media (max-width: 1023px) {
+  #csv-viewer .csv-layout, #csv-viewer .csv-layout.is-collapsed { grid-template-columns: minmax(0,1fr); }
+  #csv-viewer .csv-viewport { height: 450px; }
+}
+@media (max-width: 480px) {
+  #csv-viewer .csv-toolbar { padding-inline: .75rem; }
+  #csv-viewer .csv-toolbar > div:last-child { width: 100%; }
+  #csv-viewer .csv-workspace.dark { padding: .6rem; }
+}
+#csv-viewer .csv-toolbar > div:last-child > div { max-width: 100%; flex-wrap: wrap; }
+#csv-viewer button { color: inherit; }
+
+/* Expanded mode is a complete viewport workspace; normal site content returns on restore. */
+html.csv-expanded { scrollbar-gutter: auto; overflow: hidden; }
+html.csv-expanded body { overflow: hidden; }
+html.csv-expanded .site-header,
+html.csv-expanded .site-footer,
+html.csv-expanded .skip-link,
+html.csv-expanded .csv-page-container,
+html.csv-expanded .csv-viewer-shell > :not(#csv-viewer) { display: none; }
+.csv-viewer-shell.is-expanded { position: fixed; inset: 0; z-index: 500; width: 100%; max-width: none; height: 100vh; height: 100dvh; margin: 0; background: var(--bg); }
+#csv-viewer .csv-workspace.is-expanded { width: 100%; height: 100vh; height: 100dvh; padding: 0; border-radius: 0; background: var(--bg); }
+#csv-viewer .csv-workspace.is-expanded.dark { background: #0c192c; }
+#csv-viewer .csv-workspace.is-expanded > section { height: 100%; min-height: 0; gap: 0; }
+#csv-viewer .csv-workspace.is-expanded > section > :first-child { flex-shrink: 0; padding: .5rem; gap: .25rem; }
+#csv-viewer .csv-workspace.is-expanded .csv-main-actions { flex-wrap: nowrap; overflow-x: auto; width: 100%; gap: .5rem; }
+#csv-viewer .csv-workspace.is-expanded .csv-main-actions > * { flex-shrink: 0; white-space: nowrap; }
+#csv-viewer .csv-workspace.is-expanded .csv-main-actions button,
+#csv-viewer .csv-workspace.is-expanded .csv-main-actions label { font-size: .8125rem; padding: .5rem .65rem; }
+#csv-viewer .csv-workspace.is-expanded .csv-expand-button { order: -1; position: sticky; left: 0; z-index: 5; background: #fff; }
+#csv-viewer .csv-workspace.is-expanded.dark .csv-expand-button { background: #13253e; }
+#csv-viewer .csv-workspace.is-expanded .csv-clean-status { margin: 0; }
+#csv-viewer .csv-workspace.is-expanded .csv-layout { flex: 1; min-height: 0; grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0,1fr); align-items: stretch; }
+#csv-viewer .csv-workspace.is-expanded .csv-layout > aside { display: none; }
+#csv-viewer .csv-workspace.is-expanded #csv-data-panel { height: 100%; min-height: 0; border-radius: 0; }
+#csv-viewer .csv-workspace.is-expanded .csv-toolbar { flex-direction: row; flex-wrap: nowrap; flex-shrink: 0; align-items: center; gap: .75rem; padding: .5rem; overflow-x: auto; }
+#csv-viewer .csv-workspace.is-expanded .csv-toolbar > div { flex-shrink: 0; max-width: none; }
+#csv-viewer .csv-workspace.is-expanded .csv-toolbar > div:first-child { max-width: 220px; }
+#csv-viewer .csv-workspace.is-expanded .csv-toolbar > div:last-child { width: auto; flex-wrap: nowrap; }
+#csv-viewer .csv-workspace.is-expanded .csv-toolbar > div:last-child > div { flex-wrap: nowrap; max-width: none; }
+#csv-viewer .csv-workspace.is-expanded .csv-viewport { height: auto; min-height: 0; flex: 1; }

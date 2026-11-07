@@ -30,11 +30,13 @@ def render_page(source: str, page_name: str, root: Path) -> str:
         if result.count(SEO_INCLUDE) != 1:
             raise ValueError(f"{page_name} must include search metadata exactly once")
         result = result.replace(SEO_INCLUDE, render_metadata(page_name))
-    # Version shared code and page illustrations so browsers fetch fresh
+    # Version shared code and page photography so browsers fetch fresh
     # content after redeployment instead of reusing stale cached assets.
-    for asset in ("styles.css", "script.js", "images/about-collaboration.png",
-                  "images/services-data-workflow.png",
-                  "images/holographic-analytics-office.png"):
+    for asset in ("styles.css", "script.js", "tools/admin.js", "tools/article-payback.js", "tools/article-reporting-time.js", "tools/pdf-combiner.js", "tools/csv-viewer.js", "tools/csv-viewer.css", "images/about-collaboration.png",
+                  "images/services-data-workflow.png", "images/beaver-architect.webp",
+                  "images/holographic-analytics-office.png",
+                  "images/engineering-collaboration.webp", "images/engineering-workbench.webp",
+                  "images/about-team-collaboration.webp", "images/contact-client-consultation.webp"):
         if f'"{asset}"' not in result:
             continue
         version = sha256((root / asset).read_bytes()).hexdigest()[:12]

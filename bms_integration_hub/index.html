@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>Sign in | BMS Integration Hub</title>
+    <link rel="stylesheet" href="/bms_integration_hub/portal.css">
+    <link rel="stylesheet" href="/bms_integration_hub/dashboard.css">
+    <script src="/bms_integration_hub/dashboard.js" defer></script>
+    <script src="/bms_integration_hub/portal.js" defer></script>
+</head>
+<body>
+    <a class="skip-link" href="#sign-in">Skip to sign in</a>
+    <main class="login-shell" id="login-shell">
+        <section class="workspace-story" aria-labelledby="portal-title">
+            <header class="portal-brand" aria-label="BMS Integration Hub">
+                <svg class="brand-symbol" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+                    <path d="m24 2 19 11v22L24 46 5 35V13Z" fill="#163b54" stroke="#5bc7d0" stroke-width="1.5"/>
+                    <path d="m13 19 11-6 11 6-11 6-11-6Zm0 7 11 6 11-6m-22 7 11 6 11-6" stroke="#9ce4e7" stroke-width="1.6" stroke-linejoin="round"/>
+                </svg>
+                <span class="brand-type">BMS<span>INTEGRATION HUB</span></span>
+            </header>
+
+            <div class="story-copy">
+                <p class="eyebrow">Your central BMS workspace</p>
+                <h1 id="portal-title">One hub.<br><span>Every BMS<br class="desktop-break"> integration.</span></h1>
+                <p class="story-description">Compile, organize and manage integration requirements, projects, task lists, architecture designs and monitoring — all in one place.</p>
+                <div class="workspace-diagram" aria-hidden="true">
+                    <div class="diagram-label"><span class="status-dot"></span> A connected integration lifecycle</div>
+                    <div class="diagram-flow">
+                        <div class="diagram-node"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7zM14 3v5h4M10 12h5m-5 4h5"/></svg><span>Define</span></div>
+                        <span class="flow-line"></span>
+                        <div class="diagram-node main-node"><svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5"/></svg><span>Integrate</span></div>
+                        <span class="flow-line"></span>
+                        <div class="diagram-node"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 22h8m-4-4v4M6 12h3l2-4 3 7 2-3h2"/></svg><span>Monitor</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <footer class="story-footer">
+                <ul class="workspace-capabilities" aria-label="Workspace capabilities">
+                    <li>Requirements</li><li>Project management</li><li>Task lists</li><li>Architecture design</li><li>Monitoring</li>
+                </ul>
+                <p>A dedicated workspace for your integration projects.</p>
+            </footer>
+        </section>
+
+        <section class="sign-in-section" aria-labelledby="sign-in-title">
+            <span class="portal-tag"><span></span> Customer portal</span>
+            <div class="sign-in-panel" id="sign-in" tabindex="-1">
+                <div class="access-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg></div>
+                <p class="eyebrow">Controlled access</p>
+                <h2 id="sign-in-title">Welcome to<br>BMS Integration Hub.</h2>
+                <p class="sign-in-description">Sign in to access your projects and their requirements, tasks, architecture and monitoring information.</p>
+
+                <div id="google-sign-in" class="google-slot" aria-label="Sign in with Google"><p class="login-loading" role="status">Loading Google sign-in…</p></div>
+                <p id="login-error" class="login-error" role="alert" hidden></p>
+                <button id="retry-google" class="retry-google" type="button" hidden>Reload Google sign-in</button>
+                <div class="preview-note"><span class="preview-label">New to this workspace?</span><p>Sign in with Google to request access. Your project administrator will review your request.</p></div>
+                <details class="access-help"><summary>Need access to this workspace?</summary><p>Contact your project administrator to arrange access for your organization.</p></details>
+                <p class="access-policy"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/></svg>Access is managed by your project administrator.</p>
+                <noscript><p class="noscript-note">JavaScript is required to sign in. Please enable it and reload this page.</p></noscript>
+            </div>
+            <footer class="entry-footer"><span>BMS Integration Hub</span><span>Customer workspace</span></footer>
+        </section>
+    </main>
+    <main id="workspace" class="workspace" hidden>
+        <header class="workspace-header">
+            <div class="workspace-brand"><span class="hub-logo" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="brand-label">BMS Integration Hub</span></div>
+            <form id="global-search-form" class="hub-search" role="search"><label class="sr-only" for="global-search">Search projects, sites and tasks</label><input id="global-search" type="search" placeholder="Search projects, sites, tasks…" autocomplete="off"><button type="submit" aria-label="Search"><svg class="hub-icon" aria-hidden="true"><use href="/bms_integration_hub/icons.svg#search"></use></svg></button></form>
+            <div class="header-actions"><button id="notifications" class="icon-button" type="button" aria-label="Notifications"><svg class="hub-icon" aria-hidden="true"><use href="/bms_integration_hub/icons.svg#bell"></use></svg><span id="notification-count" hidden></span></button><details class="profile-menu"><summary aria-label="Account menu"><span id="user-avatar" class="user-avatar"></span><span id="session-name"></span><svg class="hub-icon" aria-hidden="true"><use href="/bms_integration_hub/icons.svg#chevron-down"></use></svg></summary><div class="profile-dropdown"><button id="show-profile" type="button">Profile</button><button type="button" data-view="settings">Settings</button><button id="sign-out" type="button">Sign out</button></div></details></div>
+        </header>
+        <div class="workspace-layout">
+            <nav id="workspace-nav" class="workspace-nav" aria-label="Workspace">
+                <div id="sidebar-resizer" role="separator" tabindex="0" aria-label="Resize sidebar" aria-orientation="vertical" aria-controls="workspace-nav" aria-valuemin="180" aria-valuemax="420" aria-valuenow="240" title="Drag to resize · Arrow keys to adjust · Double-click to reset"></div>
+                <button id="sidebar-toggle" type="button" aria-label="Collapse sidebar" aria-expanded="true"></button>
+                <div class="nav-primary">
+                    <button type="button" data-view="home" title="Home"><span class="nav-icon" data-icon="house"></span><span class="nav-label">Home</span></button>
+                    <button type="button" data-view="requirements" title="Requirements"><span class="nav-icon" data-icon="clipboard-list"></span><span class="nav-label">Requirements</span></button>
+                    <button type="button" data-view="projects" title="Projects"><span class="nav-icon" data-icon="folders"></span><span class="nav-label">Projects</span></button>
+                    <button type="button" data-view="tasks" title="Tasks"><span class="nav-icon" data-icon="list-checks"></span><span class="nav-label">Tasks</span></button>
+                    <button type="button" data-view="architecture" title="Architecture"><span class="nav-icon" data-icon="network"></span><span class="nav-label">Architecture</span></button>
+                    <button type="button" data-view="monitoring" title="Monitoring"><span class="nav-icon" data-icon="activity"></span><span class="nav-label">Monitoring</span></button>
+                </div>
+                <button type="button" data-view="settings" title="Settings" class="nav-settings"><span class="nav-icon" data-icon="settings"></span><span class="nav-label">Settings</span></button>
+            </nav>
+            <section class="workspace-content" aria-label="Workspace content"><div id="workspace-message" class="workspace-message" role="status" hidden></div><div id="admin-navigation" hidden><button type="button" data-view="users" data-owner hidden>Users</button><button type="button" data-view="roles" data-owner hidden>Roles &amp; permissions</button><button type="button" data-view="history" data-owner hidden>Access history</button></div><div id="workspace-content"></div></section>
+        </div>
+    </main>
+    <dialog id="edit-dialog" class="admin-dialog" aria-labelledby="edit-dialog-title"><div id="edit-dialog-content"></div><p class="dialog-error" role="alert" hidden></p></dialog>
+    <dialog id="confirm-dialog" class="admin-dialog confirm-dialog" aria-labelledby="confirm-title"><h2 id="confirm-title"></h2><p id="confirm-message"></p><form method="dialog" class="form-actions"><button value="cancel" class="secondary-button">Cancel</button><button value="confirm" class="primary-button">Confirm</button></form></dialog>
+</body>
+</html>

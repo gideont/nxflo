@@ -1,0 +1,249 @@
+/* ============================================================
+   report — corporate, confident, safe.
+   Serif body for readability, sans for anything that is data or
+   chrome. Surfaces are soft fills. The default.
+   ============================================================ */
+
+:root {
+  --brand: #003F87;
+  --brand-deep: #002B6B;
+  --brand-tint: #eef3fa;
+  --radius: 3px;
+}
+
+/* ── Cover: brand gradient with layered geometry ────────── */
+
+.cover {
+  --cover-plate-h: 158mm;
+  background: var(--brand-deep);
+  color: #fff;
+}
+/* Lighter than the field on purpose. Most documents have no plate — `folio
+   init` scaffolds none — and painting the band the same navy as the ground
+   made the default cover a flat rectangle. Two tones read as designed with or
+   without an image, and an image simply covers it. */
+.cover::before { background: var(--brand); }
+.cover-brand {
+  position: static; font: 600 15pt var(--font-ui); letter-spacing: -0.01em;
+  margin-bottom: auto; padding-top: 10mm;
+}
+.cover-kicker {
+  font: 500 8.6pt var(--font-ui); letter-spacing: 0.16em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72); margin-bottom: 6mm;
+}
+.cover h1 {
+  /* `color: inherit` is load-bearing: the bare `h1` rule below sets --ink for
+     cover-less documents, and it out-specifies the white this heading
+     inherits from `.cover`. Without it the title paints ink-on-navy at 1.1:1. */
+  font: 700 34pt/1.08 var(--font-ui); letter-spacing: -0.025em;
+  color: inherit; margin-bottom: 5mm; max-width: 150mm;
+}
+.cover .sub {
+  font: 400 12.5pt/1.45 var(--font-body);
+  color: rgba(255, 255, 255, 0.86); max-width: 128mm; margin-bottom: 12mm;
+}
+.cover-rule { width: 52mm; height: 3px; background: rgba(255, 255, 255, 0.55); margin-bottom: 8mm; }
+.cover-meta { font: 400 8.6pt var(--font-ui); color: rgba(255, 255, 255, 0.82); }
+.cover-meta .k {
+  /* 0.5 measured 4.4:1 on the solid ground and had shipped that way — the old
+     gradient cover was unmeasurable, so `low-contrast` never got to say so.
+     0.58 is 5.4:1, keeping headroom rather than sitting on the 4.5 line. */
+  font-size: 7pt; letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.58); margin-bottom: 1.5mm;
+}
+
+/* ── Contents ───────────────────────────────────────────── */
+
+.toc h2 {
+  font: 600 13pt var(--font-ui); letter-spacing: -0.01em;
+  margin: 0 0 7mm; padding-bottom: 3mm; border-bottom: 2px solid var(--brand); color: var(--ink);
+}
+.toc li { font: 400 10pt var(--font-ui); padding: 2.1mm 0; border-bottom: 1px solid var(--rule-soft); }
+.toc li .num { font-weight: 600; color: var(--brand); font-variant-numeric: tabular-nums; min-width: 8mm; }
+.toc li .fill { border-bottom: 1px dotted var(--rule); margin: 0 1mm; }
+.toc li .ttl { color: var(--ink); }
+.toc li a.pg { color: var(--ink-mute); font-size: 9pt; font-weight: 500; }
+
+/* ── Headings ───────────────────────────────────────────── */
+
+h2.section {
+  font: 600 16pt var(--font-ui); letter-spacing: -0.022em;
+  color: var(--ink); margin: 0 0 4mm; padding-top: 2mm;
+}
+h2.section .idx {
+  font: 600 8pt var(--font-ui); letter-spacing: 0.14em;
+  color: var(--brand); margin-bottom: 2.2mm;
+}
+h3 { font: 600 10.6pt var(--font-ui); letter-spacing: -0.008em; color: var(--ink); margin: 6mm 0 2.4mm; }
+h4, .eyebrow {
+  font: 600 8.4pt var(--font-ui); letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--ink-mute); margin: 5mm 0 2mm;
+}
+p.lead { font-size: 11.4pt; line-height: 1.5; color: var(--ink-soft); margin-bottom: 1.1em; }
+
+/* ── Metric tiles ───────────────────────────────────────── */
+
+.metric {
+  padding: 4mm 3.6mm; background: var(--wash);
+  border-left: 2.5px solid var(--brand); border-radius: 0 var(--radius) var(--radius) 0;
+}
+.metric .v {
+  font: 700 17pt var(--font-ui); letter-spacing: -0.03em;
+  color: var(--brand-deep); line-height: 1.05;
+}
+/* unit or denominator riding on the value: "231ms", "27/43" */
+.metric .v .u { font-size: 0.55em; font-weight: 500; letter-spacing: 0; }
+.metric .l {
+  font: 500 7.3pt var(--font-ui); letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--ink-mute); margin-top: 1.6mm;
+}
+.metric .d { font: 400 7.4pt var(--font-ui); color: var(--ink-soft); margin-top: 0.8mm; }
+
+/* ── Figures ────────────────────────────────────────────── */
+
+figcaption {
+  font: 400 7.8pt/1.45 var(--font-ui); color: var(--ink-soft);
+  margin-top: 2.4mm; padding-top: 2mm; border-top: 1px solid var(--rule);
+}
+figcaption .fnum { font-weight: 700; color: var(--brand); margin-right: 1.6mm; }
+
+/* ── Plates: decorative imagery, never evidence ─────────── */
+
+.plate { margin-top: 7mm; margin-bottom: 7mm; }
+.plate .credit {
+  font: 500 6.6pt var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-mute); margin-top: 2.4mm;
+}
+
+/* ── Tables ─────────────────────────────────────────────── */
+
+table { font-size: 8.1pt; }
+caption { font: 600 8pt var(--font-ui); color: var(--ink); padding-bottom: 2.4mm; }
+caption .tnum { color: var(--brand); font-weight: 700; margin-right: 1.6mm; }
+thead th {
+  font-weight: 600; font-size: 7.2pt; letter-spacing: 0.075em; text-transform: uppercase;
+  color: var(--ink-mute); padding: 0 2.4mm 2mm; border-bottom: 1.5px solid var(--brand);
+}
+tbody td { padding: 2.05mm 2.4mm; border-bottom: 1px solid var(--rule-soft); color: var(--ink-soft); }
+tbody tr:nth-child(even) { background: var(--zebra); }
+tbody td:first-child { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+/* Only the last row is ruled. Ruling every one drew three stacked hairlines
+   across a Subtotal / VAT / Total block and gave the amount due no more
+   weight than the subtotal. */
+tfoot td {
+  padding: 2.2mm 2.4mm; border-top: 0;
+  font-weight: 600; color: var(--ink); font-size: 7.9pt;
+}
+tfoot tr:last-child td {
+  border-top: 1.5px solid var(--brand); font-size: 9pt; font-weight: 700;
+  color: var(--brand-deep); padding-top: 2.8mm;
+}
+
+.pill {
+  font: 600 6.6pt var(--font-ui); letter-spacing: 0.05em;
+  padding: 0.7mm 1.9mm; border-radius: 2.5px;
+}
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.err { background: var(--err-bg); color: var(--err); }
+.pill.mute { background: var(--mute-bg); color: var(--ink-mute); }
+.pill.p0 { background: var(--err); color: #fff; }
+.pill.p1 { background: var(--warn); color: #fff; }
+.pill.p2 { background: var(--mute-bg); color: var(--ink-mute); }
+
+/* ── Callouts ───────────────────────────────────────────── */
+
+.callout {
+  gap: 3.4mm; padding: 3.6mm 4mm; margin: 5mm 0;
+  border-radius: calc(var(--radius) + 1px);
+  background: var(--wash); border-left: 3px solid var(--ink-mute);
+  font-size: 9.2pt;
+}
+.callout .ico {
+  font: 700 7.6pt var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ink-mute); padding-top: 0.4mm;
+}
+.callout.info { background: var(--brand-tint); border-left-color: var(--brand); }
+.callout.info .ico { color: var(--brand); }
+.callout.warn { background: #fdf6e9; border-left-color: var(--warn); }
+.callout.warn .ico { color: var(--warn); }
+.callout.risk { background: #fdeeee; border-left-color: var(--err); }
+.callout.risk .ico { color: var(--err); }
+.callout.ok { background: #ecf6f0; border-left-color: var(--ok); }
+.callout.ok .ico { color: var(--ok); }
+
+/* ── Pull quote ─────────────────────────────────────────── */
+
+.pullquote {
+  margin: 7mm 0; padding: 0 0 0 6mm; border-left: 2.5px solid var(--brand);
+  font: italic 400 12.5pt/1.42 var(--font-body); color: var(--brand-deep);
+}
+.pullquote cite {
+  font: 500 7.8pt var(--font-ui); color: var(--ink-mute);
+  margin-top: 2.6mm; letter-spacing: 0.03em;
+}
+
+/* ── Lists ──────────────────────────────────────────────── */
+
+ul.tick li::before { content: "▸"; color: var(--brand); font-size: 8pt; }
+ol.steps li::before {
+  top: 0.35mm; width: 4.2mm; height: 4.2mm;
+  background: var(--brand); color: #fff; border-radius: 50%;
+  font: 700 6.4pt/4.2mm var(--font-ui); text-align: center;
+}
+
+/* ── Code ───────────────────────────────────────────────── */
+
+pre {
+  font-size: 7.6pt; line-height: 1.5;
+  background: #f6f8fb; border: 1px solid var(--rule); border-left: 2.5px solid var(--brand-deep);
+  border-radius: var(--radius); padding: 3.2mm 4mm; color: var(--ink);
+}
+pre .c { color: var(--ink-mute); font-style: italic; }
+pre .k { color: var(--brand); font-weight: 700; }
+pre .s { color: var(--ok); }
+code {
+  font-size: 8.1pt; background: #f0f3f7; padding: 0.3mm 1.1mm;
+  border-radius: 2px; color: var(--brand-deep);
+}
+
+/* ── Timeline ───────────────────────────────────────────── */
+
+.timeline li { border-left: 1.5px solid var(--rule); }
+.timeline li:last-child { border-left-color: transparent; padding-bottom: 0; }
+.timeline li::before {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--brand); border: 1.5px solid #fff;
+}
+.timeline li.done::before { background: var(--ok); }
+.timeline li.now::before { background: var(--warn); width: 8px; height: 8px; left: -4.2px; }
+.timeline .tl-h { font: 600 9.2pt var(--font-ui); color: var(--ink); }
+.timeline .tl-d { font: 400 7.4pt var(--font-ui); color: var(--ink-mute); letter-spacing: 0.03em; }
+.timeline .tl-b { font-size: 8.9pt; color: var(--ink-soft); margin-top: 0.8mm; }
+
+/* ── Appendix ───────────────────────────────────────────── */
+
+.appendix { font-size: 8.6pt; }
+.appendix h2.section { font-size: 13pt; }
+
+/* ── Cover-less title, facts, columns, signature ────────── */
+
+h1 { font: 700 22pt/1.15 var(--font-ui); letter-spacing: -0.022em; color: var(--ink); margin: 0 0 3mm; }
+.doc-head { border-bottom: 2px solid var(--brand); padding-bottom: 4mm; }
+.doc-head .sub { font-size: 10.4pt; color: var(--ink-soft); margin-top: 2mm; }
+.facts dt {
+  font: 500 7pt var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-mute); margin-bottom: 1.4mm;
+}
+.facts dd { font: 400 9pt var(--font-ui); color: var(--ink); }
+.cols { gap: 9mm; }
+.cols.rail > :last-child {
+  background: var(--wash); padding: 4mm; border-left: 2.5px solid var(--brand);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.signature .line { border-bottom: 1px solid var(--ink-mute); height: 13mm; }
+.signature .who { font: 600 8.4pt var(--font-ui); color: var(--ink); margin-top: 2mm; }
+.signature .role {
+  font: 400 7.2pt var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ink-mute); margin-top: 0.8mm;
+}

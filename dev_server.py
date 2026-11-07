@@ -17,6 +17,7 @@ from urllib.parse import unquote, urlsplit
 
 from lib.site import render_page
 from lib.seo import crawl_assets
+from build import PORTAL_FILES
 
 
 WATCH_EXTENSIONS = {".html", ".css", ".js", ".py", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
@@ -92,6 +93,13 @@ class HotReloadHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=directory, **kwargs)
 
     def do_GET(self) -> None:
+        requested_path = unquote(urlsplit(self.path).path)
+        if requested_path in ("/bms_integration_hub", "/bms_integration_hub/"):
+            self.path = "/bms_integration_hub/index.html"
+        elif requested_path.startswith("/bms_integration_hub/"):
+            if requested_path.removeprefix("/bms_integration_hub/") not in PORTAL_FILES:
+                self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+                return
         asset_name = urlsplit(self.path).path.lstrip("/")
         assets = crawl_assets()
         if asset_name in assets:
@@ -111,6 +119,14 @@ class HotReloadHandler(SimpleHTTPRequestHandler):
             return
 
         super().do_GET()
+
+    def end_headers(self) -> None:
+        path = unquote(urlsplit(self.path).path)
+        if path == "/bms_integration_hub" or path.startswith("/bms_integration_hub/"):
+            self.send_header("X-Robots-Tag", "noindex, nofollow, noarchive, nosnippet")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Referrer-Policy", "no-referrer")
+        super().end_headers()
 
     def is_html_request(self) -> bool:
         parsed = urlsplit(self.path)
@@ -159,9 +175,11 @@ class HotReloadHandler(SimpleHTTPRequestHandler):
             return
 
         try:
-            content = render_page(
-                Path(path).read_text(encoding="utf-8"), Path(path).name, Path(self.directory)
-            ).encode("utf-8")
+            source = Path(path).read_text(encoding="utf-8")
+            if Path(path).resolve().parent == Path(self.directory).resolve() / "bms_integration_hub":
+                content = source.encode("utf-8")
+            else:
+                content = render_page(source, Path(path).name, Path(self.directory)).encode("utf-8")
         except (ValueError, OSError) as error:
             self.log_error("Page render failed: %s", error)
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Page render failed")

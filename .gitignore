@@ -1,2 +1,14 @@
 dist/
 __pycache__/
+
+# Runtime portal database and authentication material never belong in source/images.
+*.sqlite3
+*.sqlite3-*
+*.sqlite
+*.sqlite-*
+.auth-signing-key
+.env
+.env.*
+
+# Local CSV viewer build dependencies
+node_modules/

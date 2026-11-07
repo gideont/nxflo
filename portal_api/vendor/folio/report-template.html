@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Project — Progress Report</title>
+</head>
+<body data-theme="report" data-title="Project · Progress Report" data-footer="confidential">
+
+<!-- ════════ COVER ════════ -->
+<section class="cover">
+  <div class="cover-brand">yourbrand</div>
+  <div class="cover-kicker">Engineering Progress Report</div>
+  <h1>Project&nbsp;Name</h1>
+  <p class="sub">One sentence saying what changed and what it means.</p>
+  <div class="cover-rule"></div>
+  <div class="cover-meta">
+    <div><span class="k">Period</span>2026.01.01 – 2026.03.31</div>
+    <div><span class="k">Milestone</span>v1.0</div>
+    <div><span class="k">Author</span>Your Name</div>
+    <div><span class="k">Status</span>In progress</div>
+  </div>
+</section>
+
+<!-- ════════ CONTENTS (page numbers resolve automatically) ════════ -->
+<section class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><span class="num">01</span><span class="ttl">Executive summary</span><span class="fill"></span><a class="pg" href="#s1"></a></li>
+    <li><span class="num">02</span><span class="ttl">Detail</span><span class="fill"></span><a class="pg" href="#s2"></a></li>
+  </ol>
+</section>
+
+<!-- ════════ SECTION ════════ -->
+<div class="section-wrap">
+<h2 class="section" id="s1" data-section="Executive summary">
+  <span class="idx">SECTION 01</span>Executive summary</h2>
+
+<p class="lead">A lead paragraph carries the headline finding in one or two
+sentences. Everything after it is supporting detail.</p>
+
+<div class="metrics">
+  <div class="metric"><span class="v">1,234</span><span class="l">Metric</span><span class="d">context</span></div>
+  <div class="metric"><span class="v">42</span><span class="l">Metric</span><span class="d">context</span></div>
+  <div class="metric"><span class="v">98%</span><span class="l">Metric</span><span class="d">context</span></div>
+  <div class="metric"><span class="v">7</span><span class="l">Metric</span><span class="d">context</span></div>
+</div>
+
+<p>Body copy. Use <strong>bold</strong> for the load-bearing phrase and
+<code>inline code</code> for identifiers.</p>
+
+<ul class="tick">
+  <li>Checklist item.</li>
+  <li>Another item.</li>
+</ul>
+
+<figure>
+  <img src="charts/fig-example.svg" alt="Describe the chart">
+  <figcaption><span class="fnum">Fig. 1</span>Say what the reader should
+  conclude, not what the axes are.</figcaption>
+</figure>
+
+<div class="callout ok">
+  <span class="ico">Shipped</span>
+  <div class="body"><p>Callout tones: <code>ok</code>, <code>info</code>,
+  <code>warn</code>, <code>risk</code>.</p></div>
+</div>
+
+<blockquote class="pullquote">
+  A sentence worth pulling out of the body.
+  <cite>— source</cite>
+</blockquote>
+</div>
+
+<!-- ════════ SECTION ════════ -->
+<div class="section-wrap">
+<h2 class="section" id="s2" data-section="Detail"><span class="idx">SECTION 02</span>Detail</h2>
+
+<div class="fig-row">
+  <figure><img src="charts/fig-a.svg" alt=""><figcaption><span class="fnum">Fig. 2</span>Left.</figcaption></figure>
+  <figure><img src="charts/fig-b.svg" alt=""><figcaption><span class="fnum">Fig. 3</span>Right.</figcaption></figure>
+</div>
+
+<h3>A subsection</h3>
+
+<ul class="timeline">
+  <li class="done"><span class="tl-h">Milestone shipped</span>
+    <span class="tl-d">2026.02.01 · detail</span>
+    <div class="tl-b">What it delivered.</div></li>
+  <li class="now"><span class="tl-h">In progress</span>
+    <span class="tl-d">opened 2026.03.01</span>
+    <div class="tl-b">What it will deliver.</div></li>
+</ul>
+
+<table>
+  <caption><span class="tnum">Table 1</span>Caption above the table</caption>
+  <thead><tr><th>Item</th><th>Status</th><th class="num">Count</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>First</td><td><span class="pill ok">Done</span></td><td class="num">12</td><td>Note</td></tr>
+    <tr><td>Second</td><td><span class="pill warn">Partial</span></td><td class="num">3</td><td>Note</td></tr>
+    <tr><td>Third</td><td><span class="pill err">Blocked</span></td><td class="num">0</td><td>Note</td></tr>
+  </tbody>
+</table>
+
+<h4>Sequenced work</h4>
+<ol class="steps">
+  <li><strong>First step.</strong> Why it comes first.</li>
+  <li><strong>Second step.</strong> What it depends on.</li>
+</ol>
+
+<!-- A `pre` never splits, so it is the block most likely to jump a page and
+     strand the one after it. This section is deliberately sized to end with it
+     rather than past it; `folio check` reports the version that did not. -->
+<pre><span class="c">// code blocks keep their own left accent</span>
+<span class="k">const</span> example = <span class="s">'value'</span>;</pre>
+</div>
+
+</body>
+</html>

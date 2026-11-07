@@ -48,7 +48,7 @@ def check(url, executable, screenshots):
                 footer.scroll_into_view_if_needed()
                 footer.locator("img").evaluate_all("images => Promise.all(images.map(image => image.decode()))")
                 assert footer.locator('.footer-local h2').inner_text() == 'Vancouver, Canada. Internationally connected.'
-                assert footer.locator('.footer-positioning').inner_text() == 'Proudly based in Vancouver, Canada, supporting local businesses and international clients across Asia and beyond.'
+                assert footer.locator('.footer-positioning').inner_text() == 'Proudly based in Vancouver, Canada, supporting businesses locally and internationally including Asia.'
                 legal = footer.locator('.footer-bottom')
                 assert 'Vancouver, BC, Canada · BC Incorporation No. BC1535270 · All rights reserved.' in ' '.join(legal.inner_text().split())
                 assert legal.evaluate('element => parseFloat(getComputedStyle(element).borderTopWidth)') > 0
@@ -63,7 +63,7 @@ def check(url, executable, screenshots):
                 assert illustration['y'] + illustration['height'] <= legal.bounding_box()['y'] + 0.5, 'Illustration overlaps legal information'
                 assert footer.locator('a[href="mailto:sales@nxflo.com"]').inner_text() == "sales@nxflo.com"
                 assert footer.locator('a[href="tel:+16042609218"]').inner_text() == "+1 (604) 260-9218"
-                assert footer.locator('nav[aria-label="Footer"] a').all_text_contents() == ["Home", "About", "Services", "Contact"]
+                assert footer.locator('nav[aria-label="Footer"] a').all_text_contents() == ["Home", "Articles", "Services", "Contact", "Apps"]
                 for link in footer.locator("a").all():
                     assert link.is_visible()
                     minimum_height = 44 if width <= 800 or link.get_attribute("class") == "footer-brand" else 30

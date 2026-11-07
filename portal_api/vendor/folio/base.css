@@ -1,0 +1,622 @@
+/* ============================================================
+   folio — base layer: STRUCTURE ONLY.
+
+   Everything here is mechanics that must not vary between design
+   directions: the box model of each component, page-break behaviour,
+   and the handful of renderer workarounds that took real debugging
+   (see `folio gotchas`).
+
+   Every *look* decision — type stack, scale, colour, cover treatment,
+   whether a surface is a fill or a rule — belongs in a theme file and
+   is expressed through the token contract below. A theme that has to
+   restate structure means the split is wrong; fix the split.
+   ============================================================ */
+
+:root {
+  /* ── Token contract. Themes override these; nothing else. ── */
+  --brand: #003F87;
+  --brand-deep: #002B6B;
+  --brand-tint: #eef3fa;
+
+  --ink: #1f2733;
+  --ink-soft: #475569;
+  /* Muted, but never below WCAG AA (4.5:1) on any surface it is used on —
+     including --mute-bg, the darkest. `folio check` enforces this. */
+  --ink-mute: #626d7e;
+
+  --rule: #e2e8f0;
+  --rule-soft: #eef1f5;
+  --wash: #f7f9fc;
+  --zebra: #fafbfd;
+  --paper: #ffffff;
+
+  /* Status hues carry meaning, so they are also read as text on their own
+     tint and reversed out of a solid pill. Both directions clear AA. */
+  --ok: #2B7A53;      --ok-bg: #e6f4ec;
+  --warn: #97641A;    --warn-bg: #fdf3e0;
+  --err: #C53030;     --err-bg: #fdeaea;
+  --mute-bg: #eef1f5;
+
+  /* Faces for whatever script the document is actually in, spliced into the
+     stacks below just before the generic. `folio build` fills these in from
+     the scripts it detects; a Latin document leaves them as the generic, which
+     is why they are declared here rather than assumed.
+
+     Never set these by hand. A stack falls through per glyph, so the Latin
+     faces above them keep setting Latin — these only catch the glyphs Inter
+     and P052 do not have. Left to the generic alone, fontconfig picks the
+     fallback, and for Korean it commonly picks a Chinese face: legible,
+     wrong, and invisible to every rule in `folio check`.
+
+     Each default is the generic of its own classification, and each splice
+     sits *after* the platform generic and before the final one. Both matter:
+     a default of `sans-serif` inside `--font-mono` sent code to a proportional
+     face on any machine without JetBrains Mono, and a splice placed ahead of
+     `system-ui` pre-empted the platform's own UI face. With these two rules a
+     Latin document resolves to exactly the stack it had before. */
+  --script-sans: sans-serif;
+  --script-serif: serif;
+  --script-mono: monospace;
+
+  --font-body: "P052", "Palatino", "Bitstream Charter", Georgia, var(--script-serif), serif;
+  --font-ui: "Inter", "Noto Sans KR", "Noto Sans CJK KR", system-ui, var(--script-sans), sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, var(--script-mono), monospace;
+
+  --fs-body: 9.8pt;
+  --lh-body: 1.48;
+  /* A footnote sits ON a step of the theme's scale, never beside one. Both
+     sizes were relative — the note `0.86em` of the body, the call `0.7em` of
+     the note — which is two `em`s compounding, and it landed 7.654pt beside a
+     7.6pt running foot in `technical` and 8.256pt beside 8.2pt in `minimal`.
+     `type-drift` reported both the day the first document with footnotes was
+     built in all four directions. Each theme now names the step it wants. */
+  --fs-note: 8.4pt;
+  --fs-note-call: 6pt;
+  /* The measure: how wide the prose column runs, so the reader crosses 45–90
+     characters before the line returns. `folio check` measures the result
+     rather than trusting this number.
+
+     A length and not `ch`, which was the first attempt and was wrong on the
+     page. `ch` scales with each element's own font size, so a lead, a body
+     paragraph and a pull-quote each got a different physical width and the
+     page grew three right edges — and a lead large enough for 68ch to exceed
+     the frame was not capped at all. One length gives one edge, which is what
+     a measured column beside a full-bleed plate has to have to read as a
+     decision rather than an accident. Only visible by looking at a page. */
+  --measure: 130mm;
+  --radius: 3px;
+
+  /* page geometry */
+  --page-margin-x: 18mm;
+  --page-margin-top: 20mm;
+  --page-margin-bottom: 18mm;
+}
+
+/* ── Page furniture ─────────────────────────────────────── */
+
+@page {
+  size: A4;
+  margin: var(--page-margin-top) var(--page-margin-x) var(--page-margin-bottom);
+
+  @top-left {
+    content: string(doctitle);
+    font: 500 7.4pt var(--font-ui);
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 5mm;
+  }
+  @top-right {
+    content: string(section);
+    font: 400 7.4pt var(--font-ui);
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    margin-bottom: 5mm;
+  }
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font: 500 7.6pt var(--font-ui);
+    color: var(--ink-mute);
+    font-variant-numeric: tabular-nums;
+    margin-top: 4mm;
+  }
+  @bottom-left {
+    content: string(footnote);
+    font: 400 7.2pt var(--font-ui);
+    color: var(--ink-mute);
+    margin-top: 4mm;
+  }
+}
+
+@page cover {
+  margin: 0;
+  @top-left { content: none } @top-right { content: none }
+  @bottom-right { content: none } @bottom-left { content: none }
+}
+@page frontmatter {
+  @top-left { content: none } @top-right { content: none }
+  @bottom-right { content: counter(page, lower-roman); }
+}
+/* An invoice, a letter, a quote and a one-pager carry no running furniture:
+   no title rail, no section rail, no page counter, no footer line. It is a
+   document property rather than a build flag — an invoice is furniture-free
+   wherever it is rebuilt, and a flag has to be remembered every time. */
+@page bare {
+  @top-left { content: none } @top-right { content: none }
+  @bottom-right { content: none } @bottom-left { content: none }
+}
+body[data-furniture="none"] { page: bare; }
+
+/* ── Base ───────────────────────────────────────────────── */
+
+* { box-sizing: border-box; }
+html { overflow-wrap: break-word; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  color: var(--ink);
+  hyphens: auto;
+  /* Bound the hyphenation. Left unlimited this renderer breaks after two
+     letters — `ex‐traordin‐ary` — and folio's own examples carried `un‐`,
+     `al‐`, `syn‐`, `com‐`, `run‐` and `Feb‐`. Seven letters minimum, four
+     before the break and three after, measured against the corpus: at 6 3 3
+     the three-letter fragments survive, at 7 4 3 none do. Stricter than the
+     usual 5 2 3 on purpose, and the cost — fewer places to break, so looser
+     justification — was checked on the page rather than assumed. */
+  hyphenate-limit-chars: 7 4 3;
+  text-align: justify;
+  /* the running head/foot read these off <body>; see build.py */
+  string-set: doctitle attr(data-title), footnote attr(data-footer);
+}
+
+p { margin: 0 0 0.62em; orphans: 3; widows: 3; }
+
+/* Prose is measured; figures, tables and anything that owns its own width are
+   not. Capping everything leaves a ragged right edge that reads as a fault —
+   a measured column beside full-width figures reads as a decision. */
+p, blockquote, ul, ol { max-width: var(--measure); }
+
+/* Display type does not hyphenate. A lead is three or four lines set large and
+   read as a unit, and a broken word in it is the first thing the eye finds —
+   found by looking at a rendered page, because nothing measurable is wrong. */
+p.lead, blockquote { hyphens: none; }
+
+/* Components that own their width. `.toc` is a flex row whose dotted fill
+   stretches to the page edge, so a measured `ol` would pull its page numbers
+   into the middle of the page. */
+.toc ul, .toc ol, td p, th p, figcaption p, .metric p { max-width: none; }
+strong { font-weight: 700; color: var(--ink); }
+em { font-style: italic; }
+a { color: var(--brand); text-decoration: none; }
+
+/* ── Cover (structure; every theme repaints it) ─────────── */
+
+.cover {
+  page: cover;
+  break-after: page;
+  height: 297mm;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--cover-plate-h, 0) var(--page-margin-x) 22mm;
+  text-align: start;
+}
+
+/* A bleeding band across the head of the cover, sized by --cover-plate-h.
+   Two pieces, deliberately:
+
+   `.cover::before` is the band itself, so a theme gets one by setting the
+   token and painting the pseudo-element — no markup, which is what keeps
+   every existing document working and is how `technical` and `minimal` carry
+   a rule they never had to author.
+
+   `img.cover-plate` is the optional image that covers it, for the two themes
+   doctrine allows imagery on. When absent the painted band shows; when the
+   image fails to load, it shows through rather than leaving a hole.
+
+   Type never sits on either. That is the point of the split band:
+   `low-contrast` declines to measure anything over an image, so a cover that
+   reversed its title out of a generated plate would ship illegible with a
+   green build. */
+.cover::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: var(--cover-plate-h, 0);
+}
+img.cover-plate {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: var(--cover-plate-h, 0);
+  object-fit: cover;
+  display: block;
+}
+.cover h1, .cover .sub { text-align: start; margin: 0; }
+
+/* ── Document head: a title block for a document with no cover ──
+   An invoice, a letter, a one-pager and a brief all open on the page they
+   start on. Before this the only styled title was `.cover h1`, so a
+   cover-less document fell to the UA default — measurably *smaller* than
+   `h2.section` in two themes, i.e. an inverted hierarchy. */
+.doc-head { margin-bottom: 9mm; }
+.doc-head h1, .doc-head .sub { margin: 0; text-align: start; }
+
+/* ── Facts: a labelled key/value grid ───────────────────────────
+   Bill-to and remit-to on an invoice, the at-a-glance panel on a case study,
+   document control on an SOP. Pairs are wrapped so the label sits over its
+   value; `<div>` inside `<dl>` is valid and keeps the semantics. */
+.facts { display: flex; flex-wrap: wrap; gap: 5mm 10mm; margin: 6mm 0; }
+.facts > div { min-width: 30mm; }
+.facts dt, .facts dd { display: block; margin: 0; }
+
+/* ── Columns: two-up, or a main column with a side rail ─────────
+   `.cols` is equal halves (bill-from / bill-to). `.cols.rail` is the
+   asymmetric pair every real exemplar uses — a main measure with a narrow
+   rail beside it — which is NOT the same thing as `.two-col`, a single block
+   flowed into two equal columns. */
+.cols { display: flex; gap: 9mm; margin: 6mm 0; }
+/* `min-height: 0` for the same reason as `min-width: 0`, on the other axis. A
+   flex item's automatic minimum is content-based, and with a raster inside one
+   it is resolved from the image's intrinsic pixels rather than the width it is
+   drawn at: a column of a plate over wrapped prose reserved 170mm for 100mm of
+   content. Nothing overflowed and nothing overlapped, so no rule could see it —
+   only the page could. */
+.cols > * { flex: 1 1 0; min-width: 0; min-height: 0; }
+.cols.rail > :first-child { flex: 2 1 0; }
+
+/* ── Signature: an acceptance block that must not split ───────── */
+.signature { display: flex; gap: 12mm; margin-top: 14mm; break-inside: avoid; }
+.signature > div { flex: 1 1 0; }
+.signature .line, .signature .who, .signature .role { display: block; }
+/* Pinned to both margins, not just the left. A box anchored on one edge has to
+   be mirrored for RTL; one anchored on both is already symmetric and
+   `text-align: start` turns the text round by itself. That is what lets
+   rtl.css carry no cover rules at all. */
+.cover-brand {
+  position: absolute; top: 20mm;
+  left: var(--page-margin-x); right: var(--page-margin-x);
+}
+.cover-meta { display: flex; gap: 14mm; }
+.cover-meta .k { display: block; }
+
+/* ── Contents ───────────────────────────────────────────── */
+
+.toc { page: frontmatter; break-after: page; }
+.toc ol { list-style: none; margin: 0; padding: 0; }
+.toc li { display: flex; align-items: baseline; gap: 3mm; }
+.toc li .fill { flex: 1; }
+.toc li a.pg {
+  font-variant-numeric: tabular-nums;
+  min-width: 5mm;
+  text-align: end;
+}
+/* page numbers resolve at render time — never typed by the author */
+.toc li a.pg::after { content: target-counter(attr(href), page); }
+
+/* ── Sections ───────────────────────────────────────────── */
+
+/* content() would swallow the SECTION 0N kicker into the running head,
+   so the title is carried explicitly on the element. */
+h2.section { string-set: section attr(data-section); break-after: avoid; text-align: start; }
+h2.section .idx { display: block; }
+.section-wrap { break-before: page; }
+.section-wrap.cont { break-before: auto; margin-top: 9mm; }
+h3, h4 { break-after: avoid; text-align: start; }
+
+/* ── Metric tiles ───────────────────────────────────────── */
+
+.metrics { display: flex; gap: 3mm; margin: 0 0 7mm; break-inside: avoid; }
+.metric { flex: 1; }
+.metric .v, .metric .l, .metric .d { display: block; }
+.metric .v { font-variant-numeric: tabular-nums; }
+
+/* ── Figures ────────────────────────────────────────────── */
+
+figure { margin: 6mm 0; break-inside: avoid; }
+figure img { width: 100%; display: block; }
+figcaption { text-align: start; }
+.fig-row { display: flex; gap: 6mm; break-inside: avoid; margin: 6mm 0; }
+.fig-row figure { flex: 1; margin: 0; }
+.bleed {
+  margin-left: calc(-1 * var(--page-margin-x));
+  margin-right: calc(-1 * var(--page-margin-x));
+  width: calc(100% + 2 * var(--page-margin-x));
+}
+.bleed figcaption { padding: 0 var(--page-margin-x); }
+
+/* ── Plates ─────────────────────────────────────────────── */
+
+/* A plate is atmosphere: cover art, a section opener, a texture. It is NOT a
+   figure — it carries no number, is never referenced from the text, and must
+   never be used for anything a reader could mistake for evidence. `folio
+   check` enforces the boundary in both directions. Combine with `.bleed` to
+   run it to the page edges. */
+.plate { break-inside: avoid; }
+.plate img { width: 100%; display: block; }
+.plate .credit { display: block; }
+
+/* ── Tables ─────────────────────────────────────────────── */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-ui);
+  margin: 4mm 0 3mm;
+  hyphens: none;                    /* else narrow cells give "hard-ware" */
+}
+thead { display: table-header-group; }   /* header repeats after a break */
+tbody tr { break-inside: avoid; }        /* only whole rows are atomic */
+caption { caption-side: top; text-align: start; break-after: avoid; }
+th { text-align: start; white-space: nowrap; }
+tbody td, tfoot td { text-align: start; vertical-align: top; }
+td.num, th.num { text-align: end; font-variant-numeric: tabular-nums; }
+.pill { display: inline-block; white-space: nowrap; }
+
+/* ── Callouts ───────────────────────────────────────────── */
+
+.callout {
+  display: flex;
+  break-inside: avoid;
+  text-align: start;
+}
+.callout .ico { flex: 0 0 21mm; }
+/* without min-width:0 a flex child refuses to wrap and overruns the box */
+.callout .body { flex: 1 1 auto; min-width: 0; }
+.callout p { text-align: start; }
+.callout p:last-child { margin-bottom: 0; }
+
+/* ── Pull quote ─────────────────────────────────────────── */
+
+.pullquote { break-inside: avoid; text-align: start; }
+.pullquote cite { display: block; font-style: normal; }
+
+/* ── Lists ──────────────────────────────────────────────── */
+
+ul.tick, ol.steps { margin: 2mm 0 4mm; padding-left: 0; list-style: none; }
+ul.tick li, ol.steps li { position: relative; padding-left: 6mm; margin-bottom: 1.7mm; text-align: start; }
+ul.tick li::before { position: absolute; left: 1mm; }
+ol.steps { counter-reset: st; }
+ol.steps li::before { counter-increment: st; content: counter(st); position: absolute; left: 0; }
+
+/* ── Code ───────────────────────────────────────────────── */
+
+pre {
+  font-family: var(--font-mono);
+  margin: 4mm 0;
+  break-inside: avoid;
+  text-align: start;
+  white-space: pre-wrap;
+}
+code { font-family: var(--font-mono); }
+
+/* ── Timeline ───────────────────────────────────────────── */
+
+.timeline { margin: 5mm 0 6mm; padding-left: 0; list-style: none; }
+.timeline li {
+  position: relative;
+  padding-left: 9mm;
+  padding-bottom: 3.6mm;
+  margin-left: 2mm;
+  text-align: start;
+  break-inside: avoid;
+}
+.timeline li::before { content: ""; position: absolute; left: -3.2px; top: 1.3mm; }
+.timeline .tl-h, .timeline .tl-d { display: block; }
+
+/* Two stacked labels, and in a CJK document they collide.
+
+   Every theme sets these with the `font:` shorthand, which resets
+   `line-height` to `normal` — and `normal` is taken from the *strut*, the first
+   font on the element, which is Latin. The glyphs are set by the face further
+   down the stack that actually has them, and a CJK face's line box is about
+   1.45em where Inter's is 1.21. The line boxes stack correctly; the text inside
+   them overlaps by half a millimetre. `text-overlap` reported it on the first
+   Korean document folio ever built, and nothing else could have.
+
+   Scoped by `:lang` so Latin documents keep their rhythm unchanged, and one
+   selector more specific than the themes' own rule so it wins without
+   `!important`. */
+.timeline .tl-h:lang(ko), .timeline .tl-d:lang(ko),
+.timeline .tl-h:lang(ja), .timeline .tl-d:lang(ja),
+.timeline .tl-h:lang(zh), .timeline .tl-d:lang(zh) { line-height: 1.5; }
+
+/* ── Keep-together ──────────────────────────────────────── */
+
+/* Tables split by default, which is right for long ones. WeasyPrint
+   ignores widows/orphans on table rows, so this is the only control. */
+table.keep, figure.keep, .keep { break-inside: avoid; }
+
+/* ── Utility ────────────────────────────────────────────── */
+
+.two-col { column-count: 2; column-gap: 8mm; }
+.divider { height: 1px; background: var(--rule); margin: 7mm 0; border: 0; }
+
+/* ── Writing systems ────────────────────────────────────── */
+
+/* Latin, Cyrillic and Greek hyphenate; nothing else does. Applying Latin
+   line-breaking to other scripts is the most common way a "global" document
+   toolchain quietly produces broken typography. `folio` sets <html lang> from
+   the scripts actually present — see scripts.py. */
+
+/* Korean: break on word boundaries, never mid-word. */
+:lang(ko), .ko { word-break: keep-all; hyphens: none; }
+:lang(ko) table, .ko table { word-break: keep-all; }
+
+/* Japanese and Chinese: break anywhere per kinsoku, never hyphenate. */
+:lang(ja), :lang(zh), .ja, .zh {
+  hyphens: none;
+  line-break: strict;
+  word-break: normal;
+}
+
+/* Thai, Lao, Khmer, Burmese: no spaces between words; the shaper decides
+   where a line may break, so never impose Latin rules. */
+:lang(th), :lang(lo), :lang(km), :lang(my) {
+  hyphens: none;
+  word-break: normal;
+  line-break: loose;
+}
+
+/* Arabic, Hebrew, Persian, Urdu: hyphenation would break joining forms. */
+:lang(ar), :lang(he), :lang(fa), :lang(ur) { hyphens: none; }
+
+/* Indic scripts: no hyphenation dictionary, and clusters must stay whole. */
+:lang(hi), :lang(bn), :lang(ta), :lang(te), :lang(mr), :lang(gu), :lang(pa) {
+  hyphens: none;
+  word-break: normal;
+}
+
+/* ── Screen ─────────────────────────────────────────────── */
+
+/* `folio build` also writes a standalone HTML page, and until now it was the
+   print stylesheet served raw. Every gutter here comes from `@page`, which a
+   browser ignores — so the shared page had no margins, no measure, and a
+   cover locked to a full 297mm. It rendered, which is exactly why nobody
+   noticed.
+
+   Print is untouched: WeasyPrint lays out for print media and never sees a
+   screen block. Colours are tokens only; base.css does not paint. */
+@media screen {
+  html {
+    background: var(--rule-soft);
+    padding: 6mm 0 12mm;
+  }
+  body {
+    /* One variable owns the screen gutter, because anything that reaches the
+       sheet edge cancels it with a negative margin and the two must agree. A
+       phone narrows it; if they drift, full-bleed blocks hang off the page. */
+    --sheet-pad: var(--page-margin-x);
+    max-width: 210mm;                     /* the sheet, at its real width */
+    margin: 0 auto;
+    padding: var(--page-margin-top) var(--sheet-pad) var(--page-margin-bottom);
+    background: var(--paper);
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+  .bleed {
+    margin-left: calc(-1 * var(--sheet-pad));
+    margin-right: calc(-1 * var(--sheet-pad));
+    width: calc(100% + 2 * var(--sheet-pad));
+  }
+  .bleed figcaption { padding: 0 var(--sheet-pad); }
+
+  /* In print the cover owns a page with `@page cover { margin: 0 }`, so its
+     own padding is the only gutter. On screen it would inherit the sheet's
+     gutter on top of that — double-inset, with a full-bleed band that stops
+     short of the edge. Pull it back out to the sheet, and drop the forced
+     297mm, which is a page constraint rather than a screen one. */
+  .cover {
+    height: auto;
+    min-height: 170mm;
+    break-after: auto;
+    margin: calc(-1 * var(--page-margin-top)) calc(-1 * var(--sheet-pad)) 0;
+    width: calc(100% + 2 * var(--sheet-pad));
+    padding: var(--page-margin-top) var(--sheet-pad) 18mm;
+  }
+  .toc { break-after: auto; padding-bottom: 4mm; }
+  /* Contents page numbers come from `target-counter`, which no browser
+     resolves — on screen the leader dots ran to an empty cell. Drop the
+     leader and the number; the titles are the useful part. */
+  .toc li .fill, .toc li a.pg { display: none; }
+
+  /* Page breaks carry meaning the browser drops; give them visible weight. */
+  .section-wrap { break-before: auto; margin-top: 13mm; padding-top: 11mm; border-top: 1px solid var(--rule); }
+  .section-wrap:first-of-type, .section-wrap.cont { border-top: 0; padding-top: 0; margin-top: 7mm; }
+
+  /* A phone is narrower than the page gutter it would otherwise inherit.
+     Nested inside `screen` on purpose: WeasyPrint parses only bare media
+     types, and a flat `@media screen and (…)` makes it log a parse error
+     on every render. Nested, it skips the whole screen block untouched. */
+  @media (max-width: 640px) {
+    html { padding: 0; }
+    body { --sheet-pad: 5mm; box-shadow: none; }
+
+    /* A table sized for A4 does not fit a phone, and `th` is deliberately
+       nowrap. Let the wide thing scroll inside itself rather than letting it
+       scroll the whole page sideways. */
+    table, pre { display: block; max-width: 100%; overflow-x: auto; }
+  }
+}
+
+
+/* A pull-quote stranded on a page of its own has been separated from the text
+   it quotes, which is a fault in its own right — and it is what a narrowed
+   measure produces first, because the quote is usually the last block in a
+   section. Keeping it with the paragraph above pulls that paragraph down with
+   it, so the page carries a passage rather than an orphaned quotation. */
+
+/* A pull-quote stranded on a page of its own has been separated from the text
+   it quotes, which is a fault in its own right — and it is what a narrowed
+   measure produces first, because the quote is usually the last block in a
+   section. Keeping it with the paragraph above pulls that paragraph down with
+   it, so the page carries a passage rather than an orphaned quotation. */
+.pullquote { break-before: avoid; }
+
+/* A bleeding band must not open a page. `half-bleed` reports exactly that —
+   three edges reach the paper and the fourth stops short under a strip of
+   white — so rather than only reporting it, forbid the break that causes it.
+   The band then pulls the block above it down instead, which is also what
+   stops the paragraph before a plate being stranded on its own page. */
+.bleed { break-before: avoid; }
+
+/* ── Footnotes ──────────────────────────────────────────── */
+
+/* Authored inline — `<span class="fn">the note</span>` right where it is
+   referenced — and moved to the foot of whatever page that sentence lands on.
+   The author never tracks a number or a page: `float: footnote` does both, and
+   the counter is the renderer's.
+
+   This is the one component whose behaviour a browser cannot reproduce. No
+   browser implements `float: footnote`, so the screen block below keeps the
+   note visible in the standalone `.page.html` rather than letting it vanish or
+   sit mid-sentence. */
+.fn {
+  float: footnote;
+  font-size: var(--fs-note);
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+::footnote-call {
+  content: counter(footnote);
+  vertical-align: super;
+  font-size: var(--fs-note-call);
+  line-height: 1;
+  color: var(--brand);
+}
+
+::footnote-marker {
+  content: counter(footnote) ".";
+  padding-right: 0.4em;
+  color: var(--brand);
+  font-variant-numeric: tabular-nums;
+}
+
+@page {
+  @footnote {
+    border-top: 0.5px solid var(--rule);
+    padding-top: 1.6mm;
+    margin-top: 3mm;
+    /* The area may take at most this much of the page before the note is
+       carried instead — a page that is more note than text is a page that
+       wanted an appendix. */
+    max-height: 45%;
+  }
+}
+
+@media screen {
+  /* No browser floats a footnote, so on screen it becomes an aside in the
+     flow, marked as one rather than left to read as an interruption. */
+  .fn {
+    float: none;
+    display: block;
+    margin: 2mm 0 2mm 6mm;
+    padding-left: 3mm;
+    border-left: 2px solid var(--rule);
+  }
+}

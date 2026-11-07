@@ -8,6 +8,7 @@ from lib.site import render_page
 from lib.seo import PAGES, SEO_INCLUDE, crawl_assets
 
 ROOT = Path(__file__).resolve().parent
+PORTAL_FILES = ("index.html", "portal.css", "portal.js", "dashboard.css", "dashboard.js", "icons.svg", "LUCIDE-LICENSE.txt")
 
 
 def build(destination: Path) -> None:
@@ -24,6 +25,11 @@ def build(destination: Path) -> None:
         name: render_page(source, name, ROOT)
         for name, source in sources.items()
     }
+    # Publish only the login assets; the supplied reference contains demo records.
+    portal = ROOT / "bms_integration_hub"
+    for name in PORTAL_FILES:
+        if not (portal / name).is_file():
+            raise ValueError(f"Missing customer portal asset: {name}")
     destination.mkdir(parents=True, exist_ok=True)
     for name, content in pages.items():
         (destination / name).write_text(content, encoding="utf-8")
@@ -31,7 +37,15 @@ def build(destination: Path) -> None:
         (destination / name).write_text(content, encoding="utf-8")
     for name in ("styles.css", "script.js"):
         shutil.copy2(ROOT / name, destination / name)
-    shutil.copytree(ROOT / "images", destination / "images", dirs_exist_ok=True)
+    for directory in ("images", "fonts", "tools", "articles"):
+        shutil.copytree(ROOT / directory, destination / directory, dirs_exist_ok=True,
+                        ignore=shutil.ignore_patterns("node_modules", "csv-src"))
+    portal_output = destination / "bms_integration_hub"
+    if portal_output.exists():
+        shutil.rmtree(portal_output)
+    portal_output.mkdir()
+    for name in PORTAL_FILES:
+        shutil.copy2(portal / name, portal_output / name)
     print(f"Built {len(pages)} pages with the shared header and footer in {destination}")
 
 

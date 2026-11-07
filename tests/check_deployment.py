@@ -34,6 +34,14 @@ def check(url, alias_header=False):
         expected = render_page((ROOT / name).read_text(), name, ROOT).encode()
         assert content == expected, f"Deployment differs from source: {name}"
         print(f"{base}{path}: 200, matches current source")
+    for name in ("images/beaver-architect.webp", "styles.css", "script.js", "tools/admin.js", "tools/article-generator.js", "tools/generator-timing.js", "tools/generator-cost.js", "tools/generator-sources.js", "tools/pdf-combiner.js", "tools/csv-viewer.js", "tools/csv-viewer.css", "tools/csv-viewer-LICENSES.txt", "tools/vendor/pdf-lib-1.17.1.min.js", "tools/vendor/PDF-LIB-LICENSE.md"):
+        status, _, content = fetch("/" + name)
+        assert status == 200 and content == (ROOT / name).read_bytes(), f"Asset differs from source: {name}"
+        print(f"{name}: 200, matches current source")
+    for name in ("articles/Nexusflow_ETL_Dashboard_Process_Playbook.pdf", "images/articles/etl-dashboard-playbook-cover.webp", "images/articles/etl-runway-scenarios.webp", "images/articles/etl-refresh-cost.webp", "tools/article-payback.js", "tools/article-reporting-time.js", "articles/Nexusflow_Stale_by_Thursday_Report.pdf", "images/articles/stale-by-thursday-cover.webp", "images/articles/manual-reporting-time.webp", "images/articles/automation-payback.webp"):
+        status, _, content = fetch("/" + name)
+        assert status == 200 and content == (ROOT / name).read_bytes(), f"Article asset differs from source: {name}"
+        print(f"{name}: 200, matches current source")
     for name, expected in crawl_assets().items():
         status, _, content = fetch("/" + name)
         assert status == 200 and content.decode() == expected, name
@@ -47,6 +55,36 @@ def check(url, alias_header=False):
     if alias_header:
         status, headers, _ = fetch("/bms-data-integration.html?source=seo-check", {"Host": "nxflo.com"})
         assert status == 301 and headers["Location"] == SITE_URL + "/bms-data-integration.html?source=seo-check", (status, headers)
+    # Keep the customer portal separate from the public marketing site.
+    for path in ("/bms_integration_hub", "/bms_integration_hub/", "/bms_integration_hub/index.html"):
+        status, headers, content = fetch(path)
+        assert status == 200, (path, status)
+        assert content == (ROOT / "bms_integration_hub/index.html").read_bytes(), path
+        assert "noindex" in headers.get("X-Robots-Tag", ""), path
+        assert headers.get("Cache-Control") == "no-store", path
+        assert headers.get("Referrer-Policy") == "strict-origin-when-cross-origin", path
+        print(f"{base}{path}: standalone login, noindex, matches source")
+    for name in ("portal.css", "portal.js", "dashboard.css", "dashboard.js", "icons.svg", "LUCIDE-LICENSE.txt"):
+        status, headers, content = fetch("/bms_integration_hub/" + name)
+        assert status == 200 and content == (ROOT / "bms_integration_hub" / name).read_bytes(), name
+        assert "noindex" in headers.get("X-Robots-Tag", ""), name
+    for name in ("BMS_Integration_Hub_Homepage.html", "README.md", "missing.html"):
+        status, headers, _ = fetch("/bms_integration_hub/" + name)
+        assert status == 404, (name, status)
+        assert "noindex" in headers.get("X-Robots-Tag", ""), name
+    status, headers, content = fetch("/")
+    assert "noindex" not in headers.get("X-Robots-Tag", ""), "Portal rules leaked to the main site"
+    assert b"bms_integration_hub" not in content, "Main site links to customer portal"
+    _, _, sitemap = fetch("/sitemap.xml")
+    assert b"bms_integration_hub" not in sitemap, "Portal is listed in the public sitemap"
+    status, headers, content = fetch("/bms_integration_hub/api/health")
+    assert status == 200 and b'"ok"' in content, "Portal API is unhealthy"
+    for path in ("/admin/generator", "/admin/analytics", "/me", "/projects", "/workspace", "/admin/users", "/admin/roles", "/admin/permissions", "/admin/projects", "/admin/audit"):
+        status, headers, _ = fetch("/bms_integration_hub/api" + path)
+        assert status == 401, (path, status)
+        assert "noindex" in headers.get("X-Robots-Tag", ""), path
+    print("Portal API healthy; anonymous project and administration requests are denied")
+    print("Portal assets verified; reference/demo files unavailable; public homepage and sitemap remain separate")
     print("Homepage redirect preserves queries; missing pages return 404; HTML compression active")
 
 

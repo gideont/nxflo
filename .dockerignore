@@ -6,3 +6,14 @@ __pycache__
 **/__pycache__
 dist
 tests
+
+# Runtime portal database and authentication material never belong in source/images.
+*.sqlite3
+*.sqlite3-*
+*.sqlite
+*.sqlite-*
+.auth-signing-key
+.env
+.env.*
+
+**/node_modules

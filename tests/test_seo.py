@@ -28,9 +28,9 @@ class Document(HTMLParser):
 
 
 class SearchTests(unittest.TestCase):
-    def test_homepage_uses_versioned_holographic_analytics_image(self):
+    def test_homepage_uses_versioned_engineering_image(self):
         name = "index.html"
-        asset = "images/holographic-analytics-office.png"
+        asset = "images/engineering-collaboration.webp"
         source = (ROOT / name).read_text()
         rendered = render_page(source, name, ROOT)
         document = Document(rendered)
@@ -39,10 +39,12 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(PAGES[name].image, asset)
         self.assertEqual(document.attributes("img", "src", f"{asset}?v={version}"), [{
             "src": f"{asset}?v={version}",
-            "width": "1672",
-            "height": "941",
+            "srcset": "images/engineering-collaboration-768.webp 768w, images/engineering-collaboration.webp 1536w",
+            "sizes": "(max-width: 800px) calc(100vw - 40px), 50vw",
+            "width": "1536",
+            "height": "1024",
             "fetchpriority": "high",
-            "alt": "Colleagues in a modern office analyzing holographic dashboards for business, finance, industrial systems, and global insights.",
+            "alt": "Professionals reviewing data analysis together at a workspace overlooking Vancouver.",
         }])
         self.assertEqual(
             document.attributes("meta", "property", "og:image"),

@@ -5,9 +5,26 @@
         </a>
         <nav class="site-nav" aria-label="Primary">
             <a href="index.html" data-nav="home">Home</a>
-            <a href="about.html" data-nav="about">About</a>
+            <div class="nav-articles" data-nav-dropdown>
+                <a href="articles.html" data-nav="articles">Articles</a>
+                <button class="nav-articles-toggle" type="button" aria-label="Show articles menu" aria-expanded="false" aria-controls="articles-menu"><svg class="nav-apps-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button>
+                <div class="nav-articles-menu" id="articles-menu" data-dropdown-menu hidden>
+                    <h2 class="nav-tools-heading">Articles &amp; Playbooks</h2>
+                    <a href="articles.html"><span><span aria-hidden="true">★</span> Stale by Thursday<span class="nav-article-note">Featured research report</span></span></a>
+                    <a href="etl-dashboard-process-playbook.html">ETL and Dashboard Process Playbook</a>
+                </div>
+            </div>
             <a href="services.html" data-nav="services">Services</a>
-            <a href="contact.html" data-nav="contact">Contact</a>
+            <div class="nav-tools" data-nav-dropdown>
+                <a class="nav-apps-link" href="tools.html">Apps</a>
+                <button class="nav-tools-toggle" type="button" aria-label="Show apps menu" aria-expanded="false" aria-controls="tools-menu" aria-describedby="tools-description"><svg class="nav-apps-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button>
+                <div class="nav-tools-menu" id="tools-menu" data-dropdown-menu hidden>
+                    <h2 class="nav-tools-heading" id="tools-description">Free Apps &amp; Utilities</h2>
+                    <a href="pdf-combiner.html">PDF Merge</a>
+                    <a href="csv-viewer.html">CSV Viewer</a>
+                </div>
+            </div>
+            <a href="contact.html" data-nav="contact">Contact Us</a>
         </nav>
     </div>
 </header>

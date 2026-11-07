@@ -1,0 +1,23 @@
+"""Preview only user-entered content. No generated or fabricated research."""
+from html import escape
+from .generator_sources import extract_sources
+
+
+def layout_preview(c):
+    sources=extract_sources(c['topic'],c['youtube'])
+    pending=[key for key in ('company','title','credits','questions') if not c[key]]
+    c={**c,'company':c['company'] or 'Company pending AI','title':c['title'] or 'Title pending AI','credits':c['credits'] or 'Credits pending AI','version':c['version'] or '1.0','release_date':c['release_date'] or 'Release date pending'}
+    e=lambda value: escape(str(value), quote=True)
+    logo='<img class="logo" src="'+c['logo']+'" alt="'+e(c['company'])+' logo">' if c['logo'] else ''
+    cover=logo+'<p class="eyebrow">'+e(c['company'])+' · '+e(c['report_type'])+'</p><h1>'+e(c['title'])+'</h1><p>Created by '+e(c['credits'])+'</p><p>Release '+e(c['release_date'])+' · Version '+e(c['version'])+'</p>'
+    toc='<nav aria-label="Table of contents"><h2>Planned contents</h2><ol><li><a href="#brief">Document brief</a></li><li><a href="#research">Research questions</a></li><li><a href="#sources">Source material</a></li></ol><p>Generated chapters and page numbers will replace this planning outline when generation is connected.</p></nav>' if c['toc'] else ''
+    content='<section id="brief"><h2>Document brief</h2><p class="entered">'+e(c['topic'])+'</p></section><section id="research"><h2>Research questions</h2><p class="entered">'+e(c['questions'] or 'No research questions added.')+'</p></section>'
+    if c['graphics']: content+='<aside><strong>Key takeaway graphics</strong><p>Reserved for sourced recommendations after generation.</p></aside>'
+    if c['charts']: content+='<aside><strong>Charts &amp; bar graphs</strong><p>Reserved for charts drawn from verified numerical evidence. No sample figures are shown.</p></aside>'
+    if c['images']:
+        for i,image in enumerate(c['illustrations']): content+='<figure><img src="'+image+'" alt="Supporting image '+str(i+1)+'"></figure>'
+    content+='<section id="sources"><h2>Source material</h2><ul>'+''.join('<li>'+e(doc['name'])+' · '+str(len(doc['text']))+' extracted characters</li>' for doc in c['documents'])+''.join('<li>'+label+': <a href="'+e(url)+'" target="_blank" rel="noopener noreferrer">'+e(url)+'</a></li>' for key,label in (('youtube','YouTube'),('references','Reference')) for url in sources[key])+'</ul><p>Web research: '+('selected' if c['web_search'] else 'not selected')+'. Sources are saved; research and drafting have not run.</p></section>'
+    length='Content determines length' if c['length_mode']=='content' else 'Target: approximately '+str(c['pages'])+' pages'
+    content+='<footer><p>'+e(length)+' · '+e(c['company'])+' · Version '+e(c['version'])+'</p></footer>'
+    css='''*{box-sizing:border-box}body{margin:0;background:#eeede8;color:#273d36;font:16px/1.75 sans-serif;overflow-wrap:anywhere}main{max-width:900px;margin:auto;background:#fff;padding:clamp(20px,6vw,70px)}.notice{padding:14px;border:1px dashed #aab8a4;background:#f5f7f1;font-size:13px}h1{font-size:clamp(30px,5vw,54px);line-height:1.15}h1,h2,a{color:var(--theme)}h2{font-size:27px;line-height:1.3}.cover{min-height:580px;display:flex;flex-direction:column;justify-content:center;border-top:7px solid var(--theme);margin-top:24px}.logo{max-width:180px;max-height:100px;object-fit:contain;object-position:left}.eyebrow{color:var(--accent);text-transform:uppercase;font-size:13px;letter-spacing:.12em}section,nav{padding-top:25px}.entered{white-space:pre-wrap}img{max-width:100%;height:auto}figure{margin:24px 0}aside{border-left:4px solid var(--accent);padding:20px;margin:22px 0;background:#f4f5f1}footer{font-size:12px;color:#586955;border-top:1px solid #d5ddce;margin-top:35px;padding-top:15px}li{padding:5px 0}@media(max-width:430px){.cover{min-height:440px}}@media print{@page{size:A4;margin:20mm}body{background:white}main{padding:0}.cover{break-after:page;min-height:210mm}nav{break-after:page}figure,aside{break-inside:avoid}}'''
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+e(c['title'])+' — Layout preview</title><style>:root{--theme:'+c['color']+';--accent:'+c['accent']+'}'+css+'</style></head><body><main><p class="notice"><strong>Private layout preview.</strong> This contains your entered brief and branding. Metadata may include AI suggestions. Research and article generation have not run. This is not a completed article and cannot be published.</p><header class="cover">'+cover+'</header>'+toc+content+'</main></body></html>'

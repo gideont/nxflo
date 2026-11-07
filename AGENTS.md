@@ -85,6 +85,17 @@ The footer must be consistent across Home, About, Services, Contact, and utility
 - Preserve semantic footer/navigation/address elements, visible keyboard focus, and readable text. Keep footer links compact on desktop, with touch targets of at least 44px on mobile and touch devices.
 - Verify identical footer content and layout at the same desktop and mobile widths, with no horizontal overflow down to 320px.
 
+## VM Deployment Requirement
+
+This repository runs on a VM. The user reviews changes at `https://www.nxflo.com/` and cannot access a localhost-only preview.
+
+- After adding or updating a website feature, fix, content, or visual design, always build and deploy the changes before reporting the task complete.
+- Deployment is authorized as part of these website changes; do not ask for separate deployment confirmation unless the user explicitly requests otherwise.
+- Complete the relevant tests and desktop/mobile verification first, then run `bash 1_build_docker.sh` followed by `bash 2_deploy_docker.sh`. Deploy only after the build succeeds.
+- Verify the deployed site at `https://www.nxflo.com/`, including the changed pages and assets. Use `PYTHONPATH=. python3 tests/check_deployment.py --url https://www.nxflo.com/` to check that the live pages match the current source.
+- Include the live URL and deployment verification result in the completion message.
+- If deployment fails or is blocked, report that clearly; do not describe the changes as live or leave the user with only a localhost preview.
+
 ## Before Finishing
 For every UI change:
 1. Check desktop layout.

@@ -1,0 +1,6 @@
+{
+  "name": "nexusflow-csv-viewer", "version": "1.0.0", "private": true,
+  "scripts": {"build": "esbuild entry.tsx --bundle --minify --jsx=automatic --define:process.env.NODE_ENV=\"\\\"production\\\"\" --outfile=../csv-viewer.js && tailwindcss -i input.css -o ../csv-viewer.css --minify"},
+  "dependencies": {"@tanstack/react-virtual":"3.13.12","clsx":"2.1.1","lucide-react":"0.468.0","papaparse":"5.5.3","react":"18.3.1","react-dom":"18.3.1","xlsx":"https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"},
+  "devDependencies": {"esbuild":"0.25.12","tailwindcss":"3.4.17"}
+}

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- include:site-seo -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <!-- include:site-header -->
+    <main id="main" class="articles-main" tabindex="-1">
+        <article aria-labelledby="article-title">
+            <header class="article-hero">
+                <div class="container article-hero-grid">
+                    <div class="article-intro">
+                        <p class="eyebrow"><span aria-hidden="true">★</span> Featured article / Research report</p>
+                        <p class="article-meta">Published <time datetime="2026-11-01">November 1, 2026</time> <span aria-hidden="true">·</span> Nexusflow Inc.</p>
+                        <h1 id="article-title">Stale by Thursday</h1>
+                        <p class="article-subtitle">The hidden cost of manual spreadsheet work, and how to get your week back.</p>
+                        <div class="article-summary">
+                            <h2>The report at a glance</h2>
+                            <p>Download, clean, merge, rebuild. For many teams, the weekly report is a familiar routine—and by the time it is ready, the data has already moved on.</p>
+                            <p>This report brings together survey findings, spreadsheet research, and practical examples to explore the time, errors, and stale information behind manual reporting. It then lays out a practical way to start: measure one recurring task, automate it, and compare the results before moving to the next.</p>
+                        </div>
+                        <a class="btn btn-primary" href="articles/Nexusflow_Stale_by_Thursday_Report.pdf" download>Download the full report <span aria-hidden="true">↓</span></a>
+                        <p class="article-file-note">Free PDF · 30 pages · 3.1 MB</p>
+                    </div>
+                    <figure class="article-cover">
+                        <img src="images/articles/stale-by-thursday-cover.webp" width="1224" height="1584" alt="Cover of Stale by Thursday, a Nexusflow research report on the hidden cost of manual spreadsheet work." fetchpriority="high">
+                        <figcaption>The complete research, examples, and practical guide in one document.</figcaption>
+                    </figure>
+                </div>
+            </header>
+            <section class="article-extracts container" aria-labelledby="article-charts-title">
+                <p class="eyebrow">Inside the report</p>
+                <h2 id="article-charts-title">Where the week goes.<br>What getting it back could look like.</h2>
+                <p class="article-section-intro">Two charts from the full report offer a starting point. Explore the bars and payback curves to see the values and assumptions behind them.</p>
+                <div class="article-chart-grid">
+                    <figure class="article-chart">
+                        <h3>How much time is it, really?</h3>
+                        <p>Published estimates vary because they measure different tasks and different groups of workers. The figures below should not be added together.</p>
+                        <div class="reporting-time-chart" id="reporting-time-chart" role="group" aria-label="Weekly time spent on manual reporting tasks" aria-describedby="reporting-time-help">
+                            <div class="reporting-time-bars">
+                                <button class="reporting-time-row" type="button" data-source="Parseur / QuestionPro (2025)" data-value="More than 9 hours/week" data-detail="Self-reported time transferring data into digital systems; 500 US professionals across finance, operations, IT, support and HR." style="--hours:9;--bar-color:#6035ed">
+                                    <span class="reporting-time-label"><strong>Manual data entry</strong><span>More than 9 hours/week</span></span>
+                                    <span class="reporting-time-source">Parseur / QuestionPro (2025)</span>
+                                    <span class="reporting-time-track" aria-hidden="true"><span class="reporting-time-bar"></span></span>
+                                </button>
+                                <button class="reporting-time-row" type="button" data-source="IDC for Alteryx" data-value="Up to 8 hours/week" data-detail="Advanced spreadsheet users repeating work after the data was refreshed; study of 500+ spreadsheet users." style="--hours:8;--bar-color:#6035ed">
+                                    <span class="reporting-time-label"><strong>Repeating work after data refresh</strong><span>Up to 8 hours/week</span></span>
+                                    <span class="reporting-time-source">IDC for Alteryx</span>
+                                    <span class="reporting-time-track" aria-hidden="true"><span class="reporting-time-bar"></span></span>
+                                </button>
+                                <button class="reporting-time-row" type="button" data-source="ProcessMaker" data-value="About 3 hours/week" data-detail="Observed activity from opt-in enterprise clients, rather than a self-reported survey. Different tasks and populations from the other studies." style="--hours:3;--bar-color:#ec278d">
+                                    <span class="reporting-time-label"><strong>Time in spreadsheets</strong><span>About 3 hours/week</span></span>
+                                    <span class="reporting-time-source">ProcessMaker</span>
+                                    <span class="reporting-time-track" aria-hidden="true"><span class="reporting-time-bar"></span></span>
+                                </button>
+                                <button class="reporting-time-row" type="button" data-source="ProcessMaker" data-value="About 1.5 hours/week" data-detail="Observed copying, pasting or keying data into business applications among opt-in enterprise clients. Do not add this figure to the other estimates." style="--hours:1.5;--bar-color:#ec278d">
+                                    <span class="reporting-time-label"><strong>Copy-paste and manual entry</strong><span>About 1.5 hours/week</span></span>
+                                    <span class="reporting-time-source">ProcessMaker</span>
+                                    <span class="reporting-time-track" aria-hidden="true"><span class="reporting-time-bar"></span></span>
+                                </button>
+                            </div>
+                            <div class="reporting-time-axis" aria-hidden="true"><span>0</span><span>2</span><span>4</span><span>6</span><span>8</span><span>10</span></div>
+                            <p class="reporting-time-axis-title">Hours per week · published estimates</p>
+                            <div class="payback-tooltip reporting-time-tooltip" role="status" aria-live="polite" hidden></div>
+                        </div>
+                        <p id="reporting-time-help" class="payback-help">Hover over a bar or tap it for source details. Use Tab or ↑ ↓ to explore with a keyboard; Escape dismisses the tooltip.</p>
+                        <figcaption>From page 5. Sources: Parseur/QuestionPro (2025), IDC for Alteryx, and ProcessMaker. Populations and definitions differ; figures are not additive.</figcaption>
+                    </figure>
+                    <figure class="article-chart">
+                        <h3>When could automation pay back?</h3>
+                        <p>Hours saved each week change the payback period. The report explores this relationship using an illustrative value of $50 per hour.</p>
+                        <div class="payback-chart" id="payback-chart">
+                            <img src="images/articles/automation-payback.webp" width="1008" height="480" loading="lazy" alt="Illustrative line chart showing weeks to pay back falling as weekly hours saved increase, for build costs of $1,500, $3,000, and $6,000, assuming time is valued at $50 per hour.">
+                            <span class="payback-marker" aria-hidden="true" hidden></span>
+                            <div class="payback-tooltip" role="status" aria-live="polite" hidden></div>
+                        </div>
+                        <p id="payback-chart-help" class="payback-help" hidden>Hover near a line or tap the chart to see its values. With keyboard focus, use ← → for hours and ↑ ↓ to switch lines. Press Escape to dismiss.</p>
+                        <a class="payback-image-link" href="images/articles/automation-payback.webp">View larger chart <span aria-hidden="true">↗</span></a>
+                        <figcaption>From page 23. Nexusflow illustration: build cost ÷ (hours saved per week × $50 per hour). Build costs are placeholders, not quotes or promised results.</figcaption>
+                    </figure>
+                </div>
+            </section>
+            <section class="article-guide article-guide-single container" aria-labelledby="article-guide-title">
+                <div>
+                    <p class="eyebrow">From research to a practical first step</p>
+                    <h2 id="article-guide-title">Start with one recurring chore.</h2>
+                    <p>The report recommends timing a task for two weeks, choosing the simplest automation that works, and running the new output alongside the old for several cycles.</p>
+                    <p>The full document includes examples across finance, operations, sales, HR, and facilities, plus an automation ladder, a scoring framework, payback examples, and a 30–60–90 day plan.</p>
+                </div>
+            </section>
+            <div class="container article-source-note"><p><strong>About the evidence:</strong> The report draws on studies with different populations and definitions, including vendor-commissioned surveys, some older research, and anecdotal online discussions. Illustrations use simplified assumptions. Full sources and limitations appear in the PDF.</p></div>
+        </article>
+        <section class="article-library container" aria-labelledby="more-articles-title">
+            <p class="eyebrow">More articles</p>
+            <h2 id="more-articles-title">Practical guides for better data work.</h2>
+            <p class="article-section-intro">Explore our growing collection of research and process playbooks. Read a summary, preview the charts, and download the complete PDF.</p>
+            <div class="article-library-grid">
+                <article class="article-library-card">
+                    <a class="article-library-cover" href="etl-dashboard-process-playbook.html" aria-label="Read the ETL and Dashboard Process Playbook"><img src="images/articles/etl-dashboard-playbook-cover.webp" width="1530" height="1980" loading="lazy" alt="Cover of Nexusflow’s ETL and Dashboard Process Playbook, version 1.0."></a>
+                    <div>
+                        <p class="eyebrow">Process playbook · November 2026</p>
+                        <h3><a href="etl-dashboard-process-playbook.html">ETL and Dashboard Process Playbook</a></h3>
+                        <p>Turn a report that depends on one person into a repeatable process. Start with the decision, map the source data, test the numbers, and hand over a dashboard people can trust.</p>
+                        <p class="article-topics">ETL pipelines · Dashboard development · Data quality · Monitoring</p>
+                        <a class="btn btn-primary" href="etl-dashboard-process-playbook.html">Explore the playbook <span aria-hidden="true">→</span></a>
+                        <a class="article-library-download" href="articles/Nexusflow_ETL_Dashboard_Process_Playbook.pdf" download>Download PDF · 28 pages · 1.1 MB <span aria-hidden="true">↓</span></a>
+                    </div>
+                </article>
+            </div>
+        </section>
+    </main>
+    <!-- include:site-footer -->
+    <script src="script.js"></script>
+    <script src="tools/article-payback.js"></script>
+    <script src="tools/article-reporting-time.js"></script>
+</body>
+</html>

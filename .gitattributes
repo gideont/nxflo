@@ -1,0 +1,2 @@
+# Published PDFs are binary assets; do not diff or normalize their contents.
+*.pdf binary

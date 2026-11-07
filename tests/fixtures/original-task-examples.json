@@ -1,0 +1,84 @@
+[
+  {
+    "id": 1,
+    "question": "Still exporting CSV files and cleaning spreadsheets for weekly reports?",
+    "explanations": [
+      "Automate data collection, cleanup, and report refreshes so recurring reporting takes less manual effort."
+    ],
+    "links": []
+  },
+  {
+    "id": 2,
+    "question": "Data stuck between business apps, APIs, files, and scripts?",
+    "explanations": [
+      "Connect the systems and validate the data moving between them, creating a dependable flow instead of repeated manual handoffs."
+    ],
+    "links": [
+      "entra-id-integration.html"
+    ]
+  },
+  {
+    "id": 3,
+    "question": "Need to pull data from a database, transform it, and send it to another system?",
+    "explanations": [
+      "This is called ETL — Extract, Transform, Load. We customize the workflow to extract your data, transform it into the format you need, and load it into the target system. The same setup can also be used for scheduled transfers or periodic backups."
+    ],
+    "links": [
+      "etl-data-pipelines.html"
+    ]
+  },
+  {
+    "id": 4,
+    "question": "Dashboards out of date, inconsistent, or hard to trust?",
+    "explanations": [
+      "Fix the underlying data quality and refresh pipelines, then improve Power BI or other dashboards so teams can use the results with confidence."
+    ],
+    "links": [
+      "power-bi-consulting.html"
+    ]
+  },
+  {
+    "id": 5,
+    "question": "Are your pandas or legacy data jobs failing when the data gets too large?",
+    "explanations": [
+      "We recommend technologies such as Apache Spark (e.g. Databricks) for larger workloads. Instead of relying mainly on the memory of a single machine like pandas, Spark can distribute the data and processing across multiple machines, making large data transformations more scalable and reliable."
+    ],
+    "links": [
+      "databricks-consulting.html"
+    ]
+  },
+  {
+    "id": 6,
+    "question": "Growing data volumes outpacing your ETL pipelines or storage?",
+    "explanations": [
+      "Design data lakes, lakehouse workflows, and structured ETL or ELT pipelines for larger volumes and more demanding analysis."
+    ],
+    "links": []
+  },
+  {
+    "id": 7,
+    "question": "Device or OPC-UA data available, but difficult to collect and use?",
+    "explanations": [
+      "We connect industrial equipment using Modbus, OPC UA, MQTT, and SNMP, and integrate Kafka streams and APIs to move that data into pipelines, monitoring, and reporting."
+    ],
+    "links": [
+      "bms-data-integration.html"
+    ]
+  },
+  {
+    "id": 8,
+    "question": "Teams copying information by hand to bridge gaps between systems?",
+    "explanations": [
+      "Build focused automations, internal tools, and workflow integrations that move information where people need it."
+    ],
+    "links": []
+  },
+  {
+    "id": 9,
+    "question": "Data keeps arriving, but trends and anomalies go unnoticed?",
+    "explanations": [
+      "Prepare data for analytics and AI workflows, with anomaly detection and near-real-time visibility to support earlier action."
+    ],
+    "links": []
+  }
+]
