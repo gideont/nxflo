@@ -58,6 +58,8 @@ class Engine:
         row=self.db.execute('SELECT * FROM generator_jobs WHERE id=?',(job_id,)).fetchone()
         from .generator import DEFAULTS
         self.config={**DEFAULTS,**json.loads(row['config'])};self.events=json.loads(row['events']);self.state=json.loads(row['state']);self.state['config']=self.config
+        self.config['_pipeline_version']=self.state.get('pipeline_version',1)
+        self.config['_prompt_policy_version']=self.state.get('prompt_policy_version',1)
         parent=self.config.get('revision_parent') or row['parent_id']
         previous=self.db.execute('SELECT state FROM generator_jobs WHERE id=?',(parent,)).fetchone() if parent else None
         self.previous=json.loads(previous['state']) if previous else None
@@ -232,7 +234,10 @@ class Engine:
                 token=name+':'+str(s.get('passes',0))
                 if not any(event.get('token')==token and event['status']=='started' for event in self.events):self.events.append({'step':name,'status':'started','token':token,'at':db.now()})
                 self.checkpoint(s)
-                update=getattr(self,name)(s) if name!='deliver' else {}
+                if self.state.get('pipeline_version')==2 and name!='deliver':
+                    from .generation_v2 import IntentPipeline
+                    update=IntentPipeline(self).run(name,s)
+                else:update=getattr(self,name)(s) if name!='deliver' else {}
                 result={**s,**update};result['next_step']=next_step(name,result)
                 self.events.append({'step':name,'status':'complete','token':token,'at':db.now(),'pass':result.get('passes',0)})
                 self.checkpoint(result,'needs_review' if name=='deliver' and result.get('warnings') else 'ready' if name=='deliver' else 'running')

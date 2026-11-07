@@ -76,3 +76,21 @@ footer,.running-header,.running-footer{display:none}
   .revision-table td:nth-child(3),.revision-table td:last-child{grid-column:1/-1;border-top:1px solid var(--rule)}
 }
 '''
+
+REPORT_CSS += r"""
+.report-data-table{table-layout:fixed;width:100%;font-size:9pt;margin:6mm 0;overflow-wrap:anywhere}
+.report-data-table th{white-space:normal}.report-data-table td,.report-data-table th{padding:2mm;vertical-align:top}
+.worked-financials{margin-top:8mm}.worked-financials h3,.financial-example h4{break-after:avoid}
+.financial-example{margin-top:8mm}.formula-register{font:9pt/1.6 var(--font-ui)}
+.formula-register dt{font-weight:600;text-transform:capitalize;margin-top:3mm}.formula-register dd{margin:0}
+.formula-register code,.registered-formula code{white-space:normal;overflow-wrap:anywhere}
+@media screen{.report-data-table{display:table;font-size:13px}.report-data-table caption{font-size:14px}.report-data-table th{font-size:12px}.formula-register{font-size:13px}}
+@media screen and (max-width:640px){
+ .report-data-table,.report-data-table tbody{display:block;max-width:100%;overflow:visible}
+ .report-data-table caption{display:block;width:100%;font-size:14px}
+ .report-data-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ .report-data-table tr{display:block;border:1px solid var(--rule);margin-bottom:14px;padding:8px}
+ .report-data-table td{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:10px;border:0;padding:7px;font-size:13px;min-width:0}
+ .report-data-table td::before{content:attr(data-label);font-weight:600;color:var(--brand);font-size:12px}
+}
+"""

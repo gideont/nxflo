@@ -62,9 +62,17 @@ class Models:
             limit=self.config.get('web_budget_usd',0.30)
             if limit==0:raise GenerationError('Web research disabled by the US$0 limit.')
             plan=web_plan(self.request('GET','/models'),limit);model=WEB_MODEL;service='flex'
+        system=SYSTEM
+        if self.config.get('_pipeline_version')==2:
+            from .generation_intent import system_for_stage,instructions
+            if self.config.get('_prompt_policy_version',2)==1:
+                system='You are a professional document author and editor. '+instructions(self.config)+' Return only the requested JSON or text.'
+            else:system=system_for_stage(self.config,stage)
         bodies=[]
         for prompt in prompts:
-            body={'model':model.removesuffix(':batch'),'messages':[{'role':'system','content':SYSTEM},{'role':'user','content':prompt}],'max_tokens':10000}
+            if self.config.get('_pipeline_version')==2 and databricks and structured:
+                prompt+='\nOUTPUT_SCHEMA (return valid JSON with these fields): '+json.dumps(response_schema(stage,self.config)['json_schema']['schema'])
+            body={'model':model.removesuffix(':batch'),'messages':[{'role':'system','content':system},{'role':'user','content':prompt}],'max_tokens':10000}
             if structured and not databricks:
                 body['response_format']=response_schema(stage,self.config)
                 body['provider']={'require_parameters':True}
@@ -106,7 +114,12 @@ class Models:
             except RejectedGenerationError:
                 self.db.execute("UPDATE generator_calls SET status='rejected' WHERE job_id=? AND call_key=?",(self.job_id,key))
                 raise
-        if not row or row['status'] in ('rejected','retry_authorized'):shutdown_checkpoint()
+        if not row or row['status'] in ('rejected','retry_authorized'):
+            # An interrupted POST must not be bypassed by a changed prompt hash,
+            # a different stage or a deployment. Cached completed work is safe.
+            uncertain=self.db.execute("SELECT stage FROM generator_calls WHERE job_id=? AND status='submitting' AND remote_id IS NULL AND call_key!=? LIMIT 1",(self.job_id,key)).fetchone()
+            if uncertain:raise GenerationError('A '+uncertain['stage']+' submission has an unknown billing outcome. Resolve it before submitting another provider request.')
+            shutdown_checkpoint()
         if identity.get('batch'):
             if not row or row['status']=='rejected':
                 if not row:self.db.execute('INSERT INTO generator_calls(job_id,call_key,status,stage) VALUES(?,?,?,?)',(self.job_id,key,'submitting',stage))

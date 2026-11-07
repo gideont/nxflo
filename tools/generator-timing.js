@@ -20,6 +20,7 @@
     const chunks=job.source_metrics?.summary_chunks || Math.max(1,Math.ceil(((config.topic || '').length+(config.documents || []).reduce((n,d)=>n+(d.text || '').length,0))/24000));
     const passes=config.review_passes || 1,reviewed=events.filter(e=>e.step==='review' && e.status==='complete').length;
     const weights={collect:90,summarize:chunks*12,outline:20,draft:chapters*35,review:chapters*12*Math.max(1,passes-reviewed),rewrite:chapters*30*Math.max(1,passes-reviewed),polish:chapters*25,charts:4,assemble:4,html_review:0,pdf:15,deliver:1};
+    if(job.pipeline_version===2){weights.summarize+=Math.max(1,Math.ceil((config.topic || '').length/16000))*15;weights.outline+=config.document_intent==='product_concept'?30:0;weights.assemble+=Math.max(1,Math.ceil(chapters*3/24))*35;}
     const starts=events.filter(e=>e.step===job.step && ['started','resumed'].includes(e.status));
     const began=starts.length?Date.parse(starts.at(-1).at)/1000:now;
     let remaining=order.slice(Math.max(0,stage)).reduce((n,key)=>n+weights[key],0);

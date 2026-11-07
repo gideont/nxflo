@@ -25,17 +25,29 @@
     const notes=Math.max(1000,Math.min(40000,chunks*250));
     const manuscript=Math.ceil(pages*650),chapters=Math.max(2,Math.min(12,Math.ceil(pages/3)));
     const feedback=Math.ceil(String(config.feedback || '').length/4),revisionContext=config.revision_parent?manuscript:0;
+    const intentAware=typeof config.document_intent==='string';
+    const authorCharacters=String(config.topic || '').length+(config.documents || []).filter(doc=>(doc.role || 'author')==='author').reduce((n,doc)=>n+doc.text.length,0);
+    const authorChunks=Math.max(1,Math.ceil(authorCharacters/16000));
+    const authorContext=intentAware?Math.min(12000,Math.ceil(authorCharacters/4))+4000:0;
+    const financial=intentAware && config.document_intent==='product_concept' && /investment|financial|FP&A|cash flow|NPV|IRR/i.test(config.topic || '');
     const rows=[];
     function add(stage,model,input,output,calls=1,service='default') {
       const rates=rate(prices.models[model],input,service);
       rows.push({stage,model,input:input*calls,output:output*calls,cost:calls*(input*rates.input+output*rates.output)/1e6});
     }
-    add('Summarize evidence',ids[0],Math.ceil(source/chunks)+500,Math.ceil(notes/chunks),chunks,config.summary_service);
-    add('Outline',ids[1],notes+1000+feedback+(revisionContext?chapters*30:0),1200,1,config.draft_service);
-    add('Draft chapters',ids[1],notes+2200+revisionContext+feedback,Math.ceil(manuscript/chapters),chapters,config.draft_service);
-    add('Review',ids[1],Math.ceil(manuscript/chapters)+notes+1000+feedback,1200,passes*chapters,config.draft_service);
-    add('Rewrite',ids[1],Math.ceil(manuscript/chapters)+notes+2200,Math.ceil(manuscript/chapters),passes*chapters,config.draft_service);
-    add('Final polish',ids[2],Math.ceil(manuscript/chapters)+1000+feedback,Math.ceil(manuscript/chapters),chapters,config.polish_service);
+    if(intentAware)add('Extract author intent',ids[0],Math.min(4000,Math.ceil(authorCharacters/4/authorChunks))+800,2200,authorChunks,config.summary_service);
+    const summarySource=intentAware?Math.max(0,source-Math.ceil(authorCharacters/4)):source;
+    if(!intentAware || summarySource>0)add(intentAware?'Summarize external evidence':'Summarize evidence',ids[0],Math.ceil(summarySource/chunks)+500,Math.ceil(notes/chunks),chunks,config.summary_service);
+    if(financial)add('Plan hypothetical scenario inputs',ids[1],authorContext+2000,3000,1,config.draft_service);
+    add('Outline',ids[1],notes+authorContext+1000+feedback+(revisionContext?chapters*30:0),1200,1,config.draft_service);
+    add('Draft chapters',ids[1],notes+authorContext+2200+revisionContext+feedback,Math.ceil(manuscript/chapters),chapters,config.draft_service);
+    add('Review',ids[1],Math.ceil(manuscript/chapters)+notes+authorContext+1000+feedback,1200,passes*chapters,config.draft_service);
+    add('Rewrite',ids[1],Math.ceil(manuscript/chapters)+notes+authorContext+2200,Math.ceil(manuscript/chapters),passes*chapters,config.draft_service);
+    add('Final polish',ids[2],Math.ceil(manuscript/chapters)+authorContext+1000+feedback,Math.ceil(manuscript/chapters),chapters,config.polish_service);
+    if(intentAware){
+      add('Publication quality gate',ids[2],manuscript+authorContext+(financial?16000:2000),3000,Math.max(1,Math.ceil(chapters*3/24)),config.polish_service);
+      add('Fidelity repair allowance',ids[1],Math.ceil(manuscript/chapters)+notes+authorContext+2200,Math.ceil(manuscript/chapters),(passes+2)*chapters,config.draft_service);
+    }
     if(web){
       const research=prices.models['openai/gpt-6-luna'];
       if(!research && !observed?.web_cost_known)return null;

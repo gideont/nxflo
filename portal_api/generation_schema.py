@@ -7,6 +7,10 @@ CHART=object_schema({'kind':{'type':'string','enum':['bar','line']},'title':STRI
 CHAPTER=object_schema({'title':STRING,'paragraphs':STRINGS,'takeaway':STRING,'charts':{'type':'array','items':CHART}})
 
 def response_schema(stage,config):
+    if config.get('_pipeline_version')==2:
+        from .generation_v2_schema import schema
+        structured=schema(stage)
+        if structured:return {'type':'json_schema','json_schema':{'name':'intent_document','strict':True,'schema':structured}}
     if stage=='outline':
         count=max(2,min(12,(config['pages']+2)//3)) if config['length_mode']=='target' else None
         schema=object_schema({'title':STRING,'chapters':{'type':'array','minItems':count or 2,'maxItems':count or 12,'items':object_schema({'title':STRING,'brief':STRING,'charts_needed':STRINGS})}})

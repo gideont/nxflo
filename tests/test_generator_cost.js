@@ -26,3 +26,10 @@ assert.equal(estimate({...config,web_search:true,web_budget_usd:0},researchPrice
 const observed=estimate({...config,web_search:true},researchPrices,3,{source_characters:645789,summary_chunks:47,web_cost:.701728375,web_cost_known:true});
 assert.equal(observed.sourceTokens,Math.ceil(645789/4));assert.equal(observed.rows.at(-1).cost,.701728375);assert.ok(observed.total>.701728375);
 console.log('Cost calculator checks passed: exact arithmetic, per-pass savings, source assumptions, missing prices, free models and long-context tiers.');
+
+const intent=estimate({...config,document_intent:'product_concept',topic:'Investment and financial decision simulator'},prices);
+assert.ok(intent.total>three.total);
+assert.ok(intent.rows.some(row=>row.stage==='Extract author intent'));
+assert.ok(intent.rows.some(row=>row.stage==='Publication quality gate'));
+assert.ok(intent.rows.some(row=>row.stage==='Plan hypothetical scenario inputs'));
+assert.ok(intent.rows.some(row=>row.stage==='Fidelity repair allowance'));

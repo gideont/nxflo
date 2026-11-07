@@ -12,7 +12,7 @@
   let pricing=null,observedSources=null,matrixSignature='';
   let timedJob=null,timingReceived=0;
   let providerSettings={openrouter:{configured:false},databricks:{configured:false,model:''}};
-  const sourceSignature=current=>JSON.stringify([current.topic,current.youtube,current.web_search,(current.documents || []).map(doc=>[doc.name,doc.text.length])]);
+  const sourceSignature=current=>JSON.stringify([current.topic,current.youtube,current.web_search,current.document_intent,(current.documents || []).map(doc=>[doc.name,doc.text.length,doc.role || 'author'])]);
   const usd=value=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:4}).format(value);
   const assetKeys=['logo','documents','illustrations','teams'];
   function message(text) { $('generator-status').textContent=text; }
@@ -130,7 +130,7 @@
     if(!pricing)return;
     $('generator-pricing-status').textContent=(pricing.warning?pricing.warning+' ':'')+'OpenRouter prices · USD · checked '+new Date(pricing.checked_at).toLocaleString()+'.';
     renderMatrix(current);
-    const roles=[['Summarize evidence','summary_model'],['Outline, draft & review','draft_model'],['Final polish','polish_model']];
+    const roles=[['Author intent & evidence','summary_model'],['Plan, draft & review','draft_model'],['Polish & publication gate','polish_model']];
     $('generator-model-rates').replaceChildren(...roles.map(([label,key])=>{
       const row=document.createElement('tr'),name=document.createElement('th');name.scope='row';
       const stage=document.createElement('span'),model=document.createElement('small');stage.textContent=label;
@@ -193,7 +193,12 @@
   }
   function fileList() {
     $('generator-document-list').replaceChildren(...config.documents.map((doc,i)=>{
-      const li=document.createElement('li'),name=document.createElement('span');name.textContent=doc.name+' · '+doc.text.length.toLocaleString()+' characters';li.append(name,button('Remove',()=>{config.documents.splice(i,1);fileList();changed();}));return li;
+      const li=document.createElement('li'),name=document.createElement('span'),role=document.createElement('select');
+      li.className='generator-source-row';name.textContent=doc.name+' · '+doc.text.length.toLocaleString()+' characters';
+      role.className='generator-source-role';role.setAttribute('aria-label','Role for '+doc.name);
+      role.replaceChildren(new Option('Author material','author'),new Option('Reference evidence','reference'));role.value=doc.role || 'author';
+      role.addEventListener('change',()=>{doc.role=role.value;changed();});
+      li.append(name,role,button('Remove',()=>{config.documents.splice(i,1);fileList();changed();}));return li;
     }));
     $('generator-image-list').replaceChildren(...config.illustrations.map((_,i)=>{
       const row=document.createElement('div'),name=document.createElement('span');name.textContent='Supporting image '+(i+1);row.append(name,button('Remove',()=>{config.illustrations.splice(i,1);fileList();changed();}));return row;
@@ -357,8 +362,10 @@
     const running=['queued','running'].includes(job.status),done=['ready','needs_review'].includes(job.status);
     document.querySelector('.generator-layout').classList.toggle('is-running',running);
     $('generator-workflow-status').textContent=(job.worker_online===false && running?'Worker heartbeat is missing; live progress is unavailable. ':'')+(job.message || job.error || job.status);
+    const intentLabels={summarize:'Preserve intent & evidence',outline:'Plan structure & examples',review:'Review intent & accuracy',assemble:'Quality gate & document layout'};
     const reviewJump=$('generator-review-jump'),reviewFocused=document.activeElement===reviewJump;reviewJump.remove();
     $('generator-steps').replaceChildren(...steps.map(([key,label],i)=>{
+      if(job.pipeline_version===2 || job.status==='idle')label=intentLabels[key] || label;
       const currentState=job.worker_online===false?'stalled':job.wait_state?.label || job.batch_wait || job.recovery?.retry_at?'waiting':job.status==='queued'?'queued':'running';
       const li=document.createElement('li');li.dataset.step=key;li.dataset.state=job.status==='awaiting_html_review' && key==='html_review'?'review':running && job.step===key?currentState:job.status==='failed' && job.step===key?'failed':complete.has(key)?'complete':'pending';
       const dot=document.createElement('span');dot.className='generator-step-dot';dot.setAttribute('aria-hidden','true');dot.textContent=complete.has(key)?'✓':String(i+1).padStart(2,'0');
@@ -444,6 +451,11 @@
   }
   $('generator-more-sources').addEventListener('click',()=>{inlineShown+=20;renderInlineSources();});
   $('generator-common-model').addEventListener('change',()=>{commonSelection($('generator-common-model').value);changed();});
+  form.elements.document_intent.addEventListener('change',()=>{
+    const labels={research_report:'Research report',product_concept:'White paper',technical_paper:'Technical paper'};
+    if(labels[form.elements.document_intent.value])form.elements.report_type.value=labels[form.elements.document_intent.value];
+    changed();
+  });
   form.addEventListener('input',changed);form.addEventListener('change',changed);
   $('generator-save').addEventListener('click',()=>save().then(()=>message('Configuration saved.')).catch(()=>{}));
   async function fillBlankMetadata() {
@@ -451,7 +463,7 @@
     const input=values();
     if(!aiFields.some(key=>!input[key].trim()) && input.release_date && input.version){if(dirty || saving)await save();return [];}
     message('AI is filling blank details from your typed brief. Existing entries will be preserved…');
-    const metadataInput=Object.fromEntries(['provider','databricks_model','company','title','topic','report_type','credits','questions','release_date','version'].map(key=>[key,input[key]]));
+    const metadataInput=Object.fromEntries(['provider','databricks_model','document_intent','company','title','topic','report_type','credits','questions','release_date','version'].map(key=>[key,input[key]]));
     const result=await request('/autofill',json('POST',{config:metadataInput}));
     if(form.elements.topic.value.trim()!==input.topic.trim())throw new Error('Your brief changed while AI was working. Try again to use the updated brief.');
     const applied=[];

@@ -40,13 +40,14 @@ def chart_svg(chart,config,sources):
 
 
 def assemble(config,state):
+    from .generation_blocks import render_table,worked_examples
     e=lambda text:escape(str(text),quote=True)
     sources=state['sources'];allowed={s['id'] for s in sources}
     def paragraph(text):
         encoded=e(text)
         return re.sub(r'\[([A-Z]\d+)\]',lambda m:'<a href="#source-'+m[1]+'">'+m[0]+'</a>' if m[1] in allowed else m[0],encoded)
     title=config['title'] or state.get('outline',{}).get('title') or 'Research report'
-    company=config['company'] or 'Independent research'
+    company=config['company'] or ('Independent author' if state.get('pipeline_version')==2 and config.get('document_intent')!='research_report' else 'Independent research')
     date=config['release_date'] or datetime.now(ZoneInfo('America/Vancouver')).date().isoformat()
     logo='<img class="logo" src="'+config['logo']+'" alt="'+e(company)+' logo">' if config['logo'] else ''
     notes='<section id="editorial-notes" class="appendix editorial-notes"><p class="eyebrow">Appendix · editorial transparency</p><h2>Source and editorial notes</h2><p class="small">Prepared with AI assistance. Review facts, quotations and recommendations before distribution. Source availability and editorial limitations are recorded below.</p>'+('<ul>'+''.join('<li>'+e(warning)+'</li>' for warning in state.get('warnings',[]))+'</ul>' if state.get('warnings') else '<p>No source-collection or automated editorial warnings were recorded.</p>')+'</section>'
@@ -61,7 +62,13 @@ def assemble(config,state):
     for i,ch in enumerate(state['document']['chapters']):
         body+='<section class="report-chapter section-wrap" id="chapter-'+str(i)+'"><p class="eyebrow">Chapter '+str(i+1).zfill(2)+'</p><h2 class="section">'+e(ch['title'])+'</h2>'+''.join('<p>'+paragraph(p)+'</p>' for p in ch['paragraphs'])
         if config['graphics'] and isinstance(ch.get('takeaway'),str):body+='<aside class="callout info"><strong class="ico">Key takeaway</strong><div class="body"><p>'+paragraph(ch['takeaway'])+'</p></div></aside>'
+        body+=''.join(render_table(table) for table in ch.get('tables',[]))
+        for formula in ch.get('formula_refs',[]):
+            from .generation_finance import FORMULAS
+            if formula in FORMULAS:body+='<p class="registered-formula"><code>'+e(FORMULAS[formula])+'</code></p>'
+        body+=worked_examples({**state,'config':config},i)
         for chart in state.get('charts',[]):
+            if chart.get('classification')=='hypothetical':continue
             if chart['chapter']==i:body+='<figure>'+chart['svg']+'<figcaption>'+e(chart['caption'])+'</figcaption></figure>'
         if config['images'] and i<len(config['illustrations']):body+='<figure><img src="'+config['illustrations'][i]+'" alt="Supporting image '+str(i+1)+'"></figure>'
         body+='</section>'
@@ -70,6 +77,8 @@ def assemble(config,state):
     body+='<section id="document-control" class="document-control"><p class="eyebrow">Document governance</p><h2>Document control and revision history</h2><dl class="document-register"><dt>Document title</dt><dd>'+e(title)+'</dd><dt>Issuing organization</dt><dd>'+e(company)+'</dd><dt>Current version</dt><dd>'+e(config['version'] or '1.0')+'</dd><dt>Release date</dt><dd>'+e(date)+'</dd></dl><div class="revision-table-wrap"><table class="revision-table"><caption>Record of document revisions</caption><thead><tr><th scope="col">Version</th><th scope="col">Revision date</th><th scope="col">Prepared by</th><th scope="col">Change summary</th></tr></thead><tbody>'+''.join('<tr><td data-label="Version">'+e(item['version'])+'</td><td data-label="Revision date">'+e(item['date'])+'</td><td data-label="Prepared by">'+e(item['prepared_by'])+'</td><td data-label="Change summary">'+e(item['summary'])+'</td></tr>' for item in history)+'</tbody></table></div><p class="small">This record identifies the document issue and its revisions. A generated revision does not imply independent verification or formal approval.</p></section>'
     if team or website:
         body+='<section id="document-contact" class="document-contact"><h2>Document enquiries</h2><p>For questions regarding this document, please contact:</p><p><strong>'+(e(team['name']) if team else e(company))+'</strong></p>'+('<p><a href="mailto:'+e(email)+'">'+e(email)+'</a></p>' if email else '')+company_link+'</section>'
+    if state.get('pipeline_version')==2:
+        body=body.replace('Prepared with AI assistance. Review facts, quotations and recommendations before distribution. Source availability and editorial limitations are recorded below.', 'Prepared with AI assistance from the author’s original material. Empirical evidence is cited separately; illustrative financial scenarios are explicitly labeled and calculated from their stated assumptions.')
     from .generation_layout import REPORT_CSS
     css=REPORT_CSS
     running='<div class="running-header">'+e(company)+' · '+e(config['report_type'])+'</div><div class="running-footer">Version '+e(config['version'] or '1.0')+' · '+e(date)+'</div>'

@@ -1033,3 +1033,5 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 
 /* Let the full review step scroll into view when the workflow is taller than the screen. */
 .generator-workflow:has([data-step="html_review"][data-state="review"]) { position:static; }
+
+.generator-file-list li.generator-source-row{flex-wrap:wrap}.generator-source-row>span{flex:1 1 100%;min-width:0;overflow-wrap:anywhere}.generator-form select.generator-source-role{flex:1 1 150px;width:auto;max-width:200px;font-size:12px}

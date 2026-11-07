@@ -85,3 +85,7 @@ Planning estimates include a separate bounded-search allowance, reference-link s
 ### Deployment recovery
 
 The worker drains on SIGTERM: it finishes the current bounded request, stores its result and billing metadata, then pauses at a durable request or graph boundary. Deployment waits for that exit without force-killing the worker. The replacement reuses completed responses and resumes the saved checkpoint. The first upgrade from a worker without draining refuses to interrupt running or queued jobs. An already lost response still requires provider reconciliation or explicit authorization before repeating its request.
+
+### Intent-aware generation
+
+New jobs use the versioned intent-aware pipeline described in [document-generation-architecture.md](document-generation-architecture.md). Choose Research report, Product concept white paper, Technical paper, or Content-preserving rewrite. Mark uploads as Author material or Reference evidence. The original author material is retained alongside exact intent anchors; supporting summaries never replace it. Hypothetical financial examples use registered calculations, assumption tables and financial figures. Stage-level fidelity checks and a final publication gate block materially drifted or unfinished work before HTML review. Existing in-flight jobs keep their original pipeline and cached request identities. A new revision uses the new pipeline.

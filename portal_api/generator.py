@@ -19,7 +19,7 @@ TOPIC_LIMIT = 2_000_000
 BASE = '/bms_integration_hub/api/admin/generator'
 DEFAULTS = dict(provider='openrouter',databricks_model='',company='Nexusflow Inc.', website='https://www.nxflo.com', prepared_team='research',
     teams=[{'id':'research','name':'Research Team at Nexusflow Inc.','email':'research@nxflo.com'}],
-    feedback='', change_summary='', revision_parent='', title='', topic='', report_type='Research report', logo='', pages=12,
+    feedback='', change_summary='', revision_parent='', title='', topic='', report_type='Research report', document_intent='content_preserving_rewrite', logo='', pages=12,
     length_mode='content', toc=True, charts=True, images=True, graphics=True, color='#315e55', accent='#b97a44',
     credits='Nexusflow', release_date='', version='1.0', questions='', youtube='', web_search=True, web_budget_usd=0.30,
     summary_model='openai/gpt-6-luna', draft_model='openai/gpt-6-luna',
@@ -30,6 +30,8 @@ def validate(data, Error):
     if not isinstance(data, dict) or set(data) - set(DEFAULTS):
         raise Error('Invalid generator settings')
     result = {**DEFAULTS, **data}
+    from .generation_intent import MODES
+    if not isinstance(result['document_intent'],str) or result['document_intent'] not in MODES:raise Error('Choose a valid document intent')
     if result['provider'] not in ('openrouter','databricks'):raise Error('Choose Databricks or OpenRouter')
     if not isinstance(result['databricks_model'],str) or len(result['databricks_model'])>200 or result['databricks_model'] and not re.fullmatch(r'[a-zA-Z0-9_./:-]{1,200}',result['databricks_model']):raise Error('Invalid Databricks model')
     for key in ('company', 'title', 'topic', 'report_type', 'credits', 'version', 'questions', 'youtube', 'release_date', 'length_mode', 'summary_model', 'draft_model', 'polish_model', 'color', 'accent', 'website', 'prepared_team', 'feedback', 'change_summary', 'revision_parent'):
@@ -105,7 +107,7 @@ def validate(data, Error):
     result['illustrations']=[image(i) for i in result['illustrations']]
     if not isinstance(result['documents'],list) or len(result['documents'])>10: raise Error('Use at most ten documents')
     for doc in result['documents']:
-        if not isinstance(doc,dict) or set(doc)!= {'name','text'} or not isinstance(doc['name'],str) or len(doc['name'])>200 or not isinstance(doc['text'],str) or len(doc['text'])>80000:
+        if not isinstance(doc,dict) or set(doc) not in ({'name','text'},{'name','text','role'}) or doc.get('role','author') not in ('author','reference') or not isinstance(doc['name'],str) or len(doc['name'])>200 or not isinstance(doc['text'],str) or len(doc['text'])>80000:
             raise Error('Invalid extracted document')
     if sum(len(d['text']) for d in result['documents'])>240000: raise Error('Combined document text exceeds 240,000 characters')
     if result['provider']=='databricks':result['web_search']=False
@@ -235,7 +237,13 @@ def register_generator(app, conn, login_required, Error):
             if not config['version']:config['version']='1.0'
             summary=config['change_summary'] or ('Revised following editorial review and feedback.' if parent else 'Initial issue.')
             history.append(history_entry(config,created_at,summary))
-            state=json.dumps({'revision_history':history})
+            from .generation_intent import digest,author_material
+            pipeline_version=app.config.get('GENERATOR_PIPELINE_VERSION',2)
+            initial={'revision_history':history,'pipeline_version':pipeline_version}
+            if pipeline_version==2:
+                original=author_material(config)
+                initial.update(prompt_policy_version=2,original_brief=config['topic'],author_original=original,author_source_hash=digest(original))
+            state=json.dumps(initial,ensure_ascii=False)
             conn().execute('INSERT INTO generator_jobs(id,config,status,step,state,created_at,updated_at,parent_id,message) VALUES(?,?,?,?,?,?,?,?,?)',(job_id,json.dumps(config,ensure_ascii=False),'queued','collect',state,created_at,created_at,parent,'Queued for document generation.'))
         return jsonify(id=job_id,version=config['version']),202
 
@@ -257,7 +265,8 @@ def register_generator(app, conn, login_required, Error):
         web_cost=sum(item['cost'] for item in web if item['cost_known']);legacy=any(item['status']=='complete' and not json.loads(item['billing']).get('web_policy') for item in web)
         web_budget={'limit':json.loads(row['config']).get('web_budget_usd',0.30),'reported':web_cost,'reserved':sum(item['reserved_cost'] for item in web if not item['cost_known']),'historical':legacy}
         metrics={'source_characters':sum(len(source.get('text','')) for source in sources),'summary_chunks':sum((len(source.get('text',''))+23999)//24000 for source in sources),'web_cost':web_cost,'web_cost_known':bool(web) and all(item['status']=='complete' and item['cost_known'] for item in web)} if sources else None
-        return jsonify(step_progress=json.loads(row['work_progress']),recovery=recovery_info(conn(),row),server_time=time.time(),wait_state=waiting,batch_wait=batch,billing=breakdown,web_budget=web_budget,source_metrics=metrics,**{k:row[k] for k in ('id','status','step','error','created_at','published_at','parent_id','message','updated_at')},config={**DEFAULTS,**{'summary_service':'default','draft_service':'default','polish_service':'default'},**json.loads(row['config'])},events=json.loads(row['events']),worker_online=worker_online(),warnings=json.loads(row['state']).get('warnings',[]),cost=conn().execute('SELECT sum(cost) FROM generator_calls WHERE job_id=? AND cost_known=1',(job_id,)).fetchone()[0],unreported_calls=conn().execute("SELECT count(*) FROM generator_calls WHERE job_id=? AND status='complete' AND cost_known=0",(job_id,)).fetchone()[0])
+        chapter_count=len(state.get('document',{}).get('chapters') or state.get('outline',{}).get('chapters') or [])
+        return jsonify(chapter_count=chapter_count or None,pipeline_version=state.get('pipeline_version',1),document_intent=json.loads(row['config']).get('document_intent','research_report'),publication_quality=state.get('publication_quality'),intent_audits=state.get('intent_audits',[]),quality_errors=state.get('quality_errors',[]),step_progress=json.loads(row['work_progress']),recovery=recovery_info(conn(),row),server_time=time.time(),wait_state=waiting,batch_wait=batch,billing=breakdown,web_budget=web_budget,source_metrics=metrics,**{k:row[k] for k in ('id','status','step','error','created_at','published_at','parent_id','message','updated_at')},config={**DEFAULTS,**{'summary_service':'default','draft_service':'default','polish_service':'default'},**json.loads(row['config'])},events=json.loads(row['events']),worker_online=worker_online(),warnings=json.loads(row['state']).get('warnings',[]),cost=conn().execute('SELECT sum(cost) FROM generator_calls WHERE job_id=? AND cost_known=1',(job_id,)).fetchone()[0],unreported_calls=conn().execute("SELECT count(*) FROM generator_calls WHERE job_id=? AND status='complete' AND cost_known=0",(job_id,)).fetchone()[0])
 
     @app.post(BASE+'/jobs/<job_id>/resume')
     @login_required(owner=True)
@@ -287,7 +296,13 @@ def register_generator(app, conn, login_required, Error):
             path=Path(app.config['DATABASE']).parent/'generated'/row['id']/'document.html'
             if not path.is_file():raise Error('HTML preview file is missing',409)
             if conn().execute("SELECT 1 FROM generator_jobs WHERE status IN ('queued','running') AND id!=?",(job_id,)).fetchone():raise Error('Another document is generating. Wait for it to finish before continuing.',409)
-            state=json.loads(row['state']);state['html_approved']=True
+            state=json.loads(row['state'])
+            if state.get('pipeline_version')==2:
+                from .generation_quality import assert_publication
+                from .generation_errors import GenerationError
+                try:assert_publication(state,path.read_text())
+                except GenerationError as error:raise Error(str(error),409)
+            state['html_approved']=True
             conn().execute("UPDATE generator_jobs SET status='queued',state=?,error='',message=?,next_run_at=0,recovery='{}',wait_state='{}',updated_at=? WHERE id=?",(json.dumps(state,ensure_ascii=False),'HTML approved. Continuing to PDF export.',db.now(),job_id))
         return jsonify(id=job_id,status='queued'),202
 
