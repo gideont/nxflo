@@ -9,6 +9,8 @@ from .generation_errors import GenerationError
 from .research_store import ResearchPaused
 from .research_client import ResearchClient,POLICY
 
+VALIDATION_POLICY=3
+
 
 def blocks(state):
     out={}
@@ -84,7 +86,7 @@ class Verifier:
         self.e.db.execute('UPDATE generator_jobs SET work_progress=? WHERE id=?',(json.dumps({'step':'assemble' if state.get('document') else 'summarize','stage':'research-'+phase,'completed':done,'total':total,'unit':'claim groups'}),self.e.id))
         self.e.message('Research & verification · '+phase+' · '+str(done)+' / '+str(total)+' groups · selected Databricks model.')
     def inventory(self,state,content):
-        identity=digest({'policy':POLICY,'model':self.e.config.get('databricks_model'),'content':content,'date':datetime.now(timezone.utc).date().isoformat()})
+        identity=digest({'policy':POLICY,'validation':VALIDATION_POLICY,'model':self.e.config.get('databricks_model'),'content':content,'date':datetime.now(timezone.utc).date().isoformat()})
         saved=self.store.cached('inventory:'+identity)
         if saved is not None:return saved
         items=list(content.items());batches=[];current={};size=0
@@ -105,6 +107,12 @@ class Verifier:
             for claim in value['claims']:
                 if not isinstance(claim,dict) or any(not isinstance(claim.get(k),str) for k in ('text','excerpt','block','kind','scope','group','query')):raise ResearchPaused('invalid_response','Invalid saved claim fields.')
                 block=batch.get(claim['block'])
+                if not block or not locate(claim['excerpt'],block['text']):
+                    # Recover a mistaken location only from one exact excerpt
+                    # already supplied in this batch. Never infer new wording.
+                    matches=[key for key,value in batch.items() if locate(claim['excerpt'],value['text'])]
+                    if len(matches)==1:
+                        claim={**claim,'block':matches[0]};block=batch[matches[0]]
                 if not block or claim['kind'] not in ('regulatory','empirical') or len(claim['text'])>2000 or not 10<=len(claim['excerpt'])<=len(block['text']) or not locate(claim['excerpt'],block['text']):raise ResearchPaused('invalid_response','A claim was not grounded in its manuscript block.')
                 claim={**claim,'id':digest({'text':' '.join(claim['text'].lower().split()),'scope':claim['scope'].lower()})[:20]}
                 prior=next((c for c in claims if c['id']==claim['id']),None)
@@ -214,21 +222,22 @@ class Verifier:
             chapter['tables' if kind=='T' else 'charts'][sub]=value
     def run(self,state):
         state=deepcopy(state);content=blocks(state);phase='manuscript' if state.get('document') else 'brief'
-        identity=digest({'policy':POLICY,'content':content,'model':self.e.config.get('databricks_model'),'date':datetime.now(timezone.utc).date().isoformat()})
+        identity=digest({'policy':POLICY,'validation':VALIDATION_POLICY,'content':content,'model':self.e.config.get('databricks_model'),'date':datetime.now(timezone.utc).date().isoformat()})
         if state.get('research',{}).get('input_hash')==identity and state['research'].get('status')=='complete':return state
         old=state.get('research',{});budget=self.store.budget()
         if old.get('input_hash')==identity and old.get('status')=='paused' and old.get('pause_reason')!='budget_exhausted':return state
         if old.get('input_hash')==identity and old.get('pause_reason')=='budget_exhausted' and old.get('budget',{}).get('limit')==budget['limit']:return state
-        state['research']={'policy':POLICY,'input_hash':identity,'phase':phase,'status':'running','claims':[],'budget':budget,'model':self.e.config.get('databricks_model'),'as_of':datetime.now(timezone.utc).date().isoformat()}
+        state['research']={'policy':POLICY,'validation_policy':VALIDATION_POLICY,'input_hash':identity,'phase':phase,'status':'running','claims':[],'budget':budget,'model':self.e.config.get('databricks_model'),'as_of':datetime.now(timezone.utc).date().isoformat()}
         try:
             claims=self.inventory(state,content);groups={}
             for claim in claims:groups.setdefault(claim['group']+'|'+claim['scope'],[]).append(claim)
             total=sum(math_ceil(len(items)/5) for items in groups.values());done=0
             for items in groups.values():
                 for start in range(0,len(items),5):
+                    content=blocks(state)
                     group=items[start:start+5];keys={key for c in group for key in c['blocks']};local={k:v for k,v in content.items() if k in keys};group_sources=[];answers=None
                     self.progress(state,'checking sources',done,total)
-                    cache_key='assessment:'+digest({'claims':group,'blocks':local,'policy':POLICY,'model':self.e.config.get('databricks_model'),'date':state['research']['as_of']})
+                    cache_key='assessment:'+digest({'claims':group,'blocks':local,'policy':POLICY,'validation':VALIDATION_POLICY,'model':self.e.config.get('databricks_model'),'date':state['research']['as_of']})
                     cached=self.store.cached(cache_key)
                     if cached and all(c['status']=='supported' for c in cached['claims']):
                         answers=cached['claims'];group_sources=cached['sources']
@@ -256,7 +265,7 @@ class Verifier:
         if 'claims' in locals():
             state['research']['claims'] +=[{**c,'status':'unresolved','reason':state['research'].get('message','Not yet checked.'),'evidence':[]} for c in claims if c['id'] not in completed]
         state['research']['block_hashes']={key:digest(value['text']) for key,value in blocks(state).items()}
-        state['research']['input_hash']=digest({'policy':POLICY,'content':blocks(state),'model':self.e.config.get('databricks_model'),'date':state['research']['as_of']})
+        state['research']['input_hash']=digest({'policy':POLICY,'validation':VALIDATION_POLICY,'content':blocks(state),'model':self.e.config.get('databricks_model'),'date':state['research']['as_of']})
         self.e.checkpoint(state);return state
 
 

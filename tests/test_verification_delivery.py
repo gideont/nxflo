@@ -73,6 +73,14 @@ class VerificationDeliveryTests(unittest.TestCase):
         # Even a reviewer mislabel cannot downgrade explicit fabrication.
         review=deepcopy(state['publication_review']);review['checks']=[c for c in review['checks'] if c['criterion']!='accuracy']+[{'criterion':'accuracy','passed':False,'evidence_blocks':['P0.0'],'reason':'A fabricated citation was found.','issue_type':'unverified_claim'}]
         self.assertEqual(decide(state,review,review_blocks(state))[0],'BLOCKED')
+    def test_explicit_missing_evidence_on_intent_or_publication_checks_is_advisory_only_for_research(self):
+        state=deepcopy(self.state);state['research_policy']=2
+        review=deepcopy(state['publication_review'])
+        for check in review['checks']:
+            check.update(passed=False,issue_type='unverified_claim',reason='The argument and structure are complete, but regulatory assertions remain uncorroborated.',evidence_blocks=['P0.0'])
+        self.assertEqual(decide(state,review,review_blocks(state))[0],'WARNING')
+        review['checks'][0]['reason']='An unverified assertion includes a fabricated citation.'
+        self.assertEqual(decide(state,review,review_blocks(state))[0],'BLOCKED')
     def test_fingerprint_invalidates_manuscript_evidence_and_criteria_changes(self):
         state=saved_state(self.config);original=publication_fingerprint(state)
         for change in ('document','source','criteria','chart'):

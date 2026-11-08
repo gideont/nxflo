@@ -8,7 +8,7 @@ from .generation_errors import GenerationError
 POLICY_VERSION=1
 LEGAL=re.compile(r'\b(?:regulat(?:ion|ory|ions)|bylaws?|zoning|MEHKO|MIKO|legaliz\w*|licens(?:e|ing)|permits?|statut(?:e|ory)|insurance coverage|food premises|clients? per day|home.occupation|strata|insurance|bans?|prohibit\w*)\b',re.I)
 CRITICAL=re.compile(r'fabricat\w*|invented (?:citation|source|quote|data)|incorrect (?:calculation|arithmetic)|broken calculation|contradict(?:s|ory|ion)',re.I)
-MISSING=re.compile(r'unverified|without (?:external |source )?(?:verification|evidence|citations)|no (?:exact |matching |external |source )*(?:evidence|citations)|lack\w* (?:external |source )?(?:verification|evidence)|cannot be certified|requiring verification',re.I)
+MISSING=re.compile(r'unverified|uncorroborated|without (?:external |source )?(?:verification|evidence|citations)|no (?:exact |matching |external |source )*(?:evidence|citations)|lack\w* (?:external |source )?(?:verification|evidence|corroboration)|cannot be certified|requiring verification',re.I)
 
 
 def external_proof(claim,sources):
@@ -53,13 +53,15 @@ def review_findings(review,state,blocks):
         valid=isinstance(ids,list) and bool(ids) and all(isinstance(b,str) and b in blocks for b in ids)
         if check['passed'] and valid:continue
         reason=check['reason'];kind='integrity'
-        if not check['passed'] and check['criterion']=='accuracy' and valid:
+        if not check['passed'] and valid:
             declared=check.get('issue_type')
             # Old completed reviews used no severity field. Migrate only explicit
             # missing-evidence rejections; an ambiguous accuracy failure stays blocked.
-            legacy=declared is None and MISSING.search(reason)
+            legacy=check['criterion']=='accuracy' and declared is None and MISSING.search(reason)
             cleaned=re.sub(r'not (?:for )?(?:a )?(?:demonstrated |actual )?contradiction','',reason,flags=re.I)
-            if (declared=='unverified_claim' or legacy) and not CRITICAL.search(cleaned):kind='verification'
+            advisory=(check['criterion']=='accuracy' and declared=='unverified_claim') or legacy
+            if state.get('research_policy')==2 and declared=='unverified_claim' and MISSING.search(reason):advisory=True
+            if advisory and not CRITICAL.search(cleaned):kind='verification'
         findings.append({'code':check['criterion'],'kind':kind,'reason':reason if valid else check['criterion']+': review references unknown or missing publication evidence.','blocks':ids if valid else []})
     return findings,bound
 

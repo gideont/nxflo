@@ -15,7 +15,7 @@ from portal_api.generation_errors import GenerationError
 from portal_api.generation_intent import digest
 from portal_api.research_client import ResearchClient,model_rates
 from portal_api.research_store import Store,ResearchPaused,summary
-from portal_api.research_workflow import validate_assessments,blocks
+from portal_api.research_workflow import validate_assessments,blocks,Verifier
 from test_portal_auth import make_test_app,sign_in,ORIGIN
 from regulatory_fixtures import BRIEF,saved_state,CLAIMS
 
@@ -39,7 +39,7 @@ class ResearchTests(unittest.TestCase):
         self.id=response.json['id'];self.doc=response.json['document_id'];self.source_state=saved_state(self.config);self.source_state.pop('publication_review');self.source_state.pop('quality_errors')
         with db.connect(self.path) as c:c.execute("UPDATE generator_jobs SET status='needs_review',step='deliver',state=? WHERE id=?",(json.dumps(self.source_state),self.id))
         directory=self.path.parent/'generated'/self.id;directory.mkdir(parents=True);(directory/'document.html').write_text('Original saved document');(directory/'document.pdf').write_bytes(b'original-pdf')
-        self.ai_calls=[];self.retrieval_calls=[];self.inconclusive=False;self.bad_quote=False;self.bad_recheck=False
+        self.ai_calls=[];self.retrieval_calls=[];self.inconclusive=False;self.bad_quote=False;self.bad_recheck=False;self.anchor_warnings=False
     def tearDown(self):self.env.stop();self.temp.cleanup()
     def start(self):
         response=self.owner.post(BASE+'/jobs/'+self.id+'/verify',json={},headers=self.headers);self.assertEqual(response.status_code,202,response.json);return response.json
@@ -66,6 +66,9 @@ class ResearchTests(unittest.TestCase):
         elif 'Independently assess this manuscript' in prompt:
             keys=json.JSONDecoder().raw_decode(prompt.split('Evaluate each required criterion exactly once: ',1)[1])[0]
             result={'checks':[{'criterion':key,'passed':True,'evidence_blocks':['P1.0'],'reason':'The original intent, sourced corrections and required sections are preserved.','issue_type':'none'} for key in keys]}
+            if self.anchor_warnings:
+                for check in result['checks']:
+                    if check['criterion'].startswith(('author:','section:')) or check['criterion']=='publication':check.update(passed=False,issue_type='unverified_claim',reason='The original message is preserved, but its regulatory assertion is unverified without external evidence.')
         else:raise AssertionError('Unexpected model task')
         return {'choices':[{'message':{'content':json.dumps(result)},'finish_reason':'stop'}],'usage':{'prompt_tokens':300,'completion_tokens':200}}
     def tavily(self,*args,**kwargs):
@@ -95,11 +98,26 @@ class ResearchTests(unittest.TestCase):
         self.assertNotIn(ENV['TAVILY_API_KEY'],json.dumps(data));self.assertNotIn(ENV['DATABRICKS_AI_KEY'],json.dumps(data))
         with db.connect(self.path) as c:self.assertFalse(c.execute("SELECT 1 FROM generator_calls WHERE job_id=? AND stage IN ('draft:0','outline:0')",(job['id'],)).fetchone())
     def test_missing_evidence_produces_downloadable_warning_and_stops_after_two_searches(self):
-        self.inconclusive=True;job=self.start();row=self.run_job(job['id']);self.assertEqual(row['status'],'needs_review',row['error'])
+        self.inconclusive=True;self.anchor_warnings=True;job=self.start();row=self.run_job(job['id']);self.assertEqual(row['status'],'needs_review',row['error'])
         state=json.loads(row['state']);self.assertEqual(state['publication_quality']['outcome'],'WARNING');self.assertEqual(state['document'],self.source_state['document'])
         self.assertEqual(sum(url.endswith('/search') for url,_ in self.retrieval_calls),2)
         before=(len(self.ai_calls),len(self.retrieval_calls));self.run_job(job['id']);self.assertEqual(before,(len(self.ai_calls),len(self.retrieval_calls)))
         response=self.owner.get(BASE+'/jobs/'+job['id']+'/download/pdf');self.assertEqual(response.status_code,200);response.close()
+    def test_saved_inventory_wrong_block_rebinds_only_unique_exact_excerpt_without_rebilling(self):
+        engine=Engine(self.path,self.id);verifier=Verifier(engine)
+        content={'P0.0':{'text':'An unrelated introductory sentence.','kind':'paragraph'},'P1.0':{'text':'The ordinance limits daily customers to three.','kind':'paragraph'}}
+        value={'claims':[{'text':'Daily customers are limited to three.','excerpt':content['P1.0']['text'],'block':'P0.0','kind':'regulatory','scope':'Vancouver present rules','group':'limits','query':'official daily customer limits'}]}
+        response={'choices':[{'message':{'content':json.dumps(value)},'finish_reason':'stop'}],'usage':{'prompt_tokens':300,'completion_tokens':200}}
+        with patch('portal_api.research_client.model_rates',return_value=RATES),patch.object(Models,'request',return_value=response) as paid:
+            claims=verifier.inventory({},content);self.assertEqual(claims[0]['blocks'],['P1.0'])
+            # A new validator re-parses saved raw output instead of re-paying.
+            engine.db.execute('DELETE FROM generator_research_cache')
+            self.assertEqual(verifier.inventory({},content),claims);self.assertEqual(paid.call_count,1)
+            value['claims'][0]['excerpt']='An invented assertion that appears nowhere.'
+            with patch.object(verifier.client,'ai',return_value=value):
+                engine.db.execute('DELETE FROM generator_research_cache')
+                with self.assertRaises(ResearchPaused):verifier.inventory({},content)
+        engine.db.close()
     def test_failed_corrective_recheck_cannot_loop_or_clear_warning(self):
         self.bad_recheck=True;job=self.start();row=self.run_job(job['id']);self.assertEqual(row['status'],'needs_review',row['error'])
         state=json.loads(row['state']);self.assertEqual(state['document'],self.source_state['document']);self.assertFalse(state.get('research_corrections'))
