@@ -1103,3 +1103,14 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 .is-active .generator-progress-track::after{content:'';position:absolute;inset:0 auto 0 0;width:35%;background:linear-gradient(90deg,transparent,#8caf9b80,transparent);animation:generator-progress-sweep 2s ease-in-out infinite;pointer-events:none}
 @keyframes generator-progress-sweep{from{transform:translateX(-110%)}to{transform:translateX(400%)}}
 @media(prefers-reduced-motion:reduce){.is-active .generator-progress-track::after{animation:none;display:none}}
+
+/* Current failures belong beside the interrupted step, not in document history. */
+.generator-failure{grid-column:1/-1;min-width:0;width:100%;margin-top:12px;padding:14px;border:1px solid #d8b8a3;border-radius:8px;background:#fff8f1;color:#653e2d;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.generator-failure h4{margin:0 0 6px;font-size:14px}.generator-failure h5{margin:14px 0 6px;font-size:13px}.generator-failure p{margin:6px 0;white-space:normal}.generator-failure .generator-failure-issue{padding-left:10px;border-left:2px solid #d1ad90}.generator-failure summary{min-height:44px;padding:10px 0;cursor:pointer;font-weight:600}.generator-failure details details{margin-top:10px}.generator-failure #generator-failure-action{margin-top:12px;color:#5b594d}
+/* Compact documents and versions, retaining mobile touch targets. */
+.generator-history{margin-top:24px;padding-top:16px}.generator-history>.generator-preview-heading{margin:8px 0}.generator-history>p{margin:6px 0}
+.generator-library-search{margin:10px 0 4px}.generator-library-filter{margin:2px 0}#generator-library-count{margin:4px 0}
+.generator-library-document{padding:10px 12px;margin:6px 0;border-radius:7px}.generator-library-heading{gap:10px}.generator-document-title{min-height:28px;font-size:15px;line-height:1.4}.generator-library-meta{gap:4px 10px;margin:3px 0;line-height:1.5}
+.generator-library-heading>.admin-button{min-height:36px;padding:6px 10px;font-size:12px}.generator-library-versions{margin-top:3px;border-top:0}.generator-library-versions>summary{min-height:28px;padding:4px 0;font-size:12px}.generator-library-versions[open]{border-top:1px solid #e0e4d9;margin-top:6px}
+.generator-library-version,.generator-library-current{padding:8px 0}.generator-library-current{padding:10px}.generator-library-version .generator-help{margin:2px 0 6px}.generator-library-version .generator-actions,.generator-library-current .generator-actions{gap:6px}.generator-library-version .admin-button,.generator-library-current .admin-button{min-height:36px;padding:6px 9px}
+@media(max-width:600px),(pointer:coarse){.generator-document-title,.generator-library-heading>.admin-button,.generator-library-versions>summary,.generator-library-version .admin-button,.generator-library-current .admin-button{min-height:44px}}

@@ -9,7 +9,7 @@
   const numeric=['pages','review_passes','cost_pages'];
   const defaultModels={summary_model:'openai/gpt-6-luna',draft_model:'openai/gpt-6-luna',polish_model:'openai/gpt-6-luna'};
   const aiFields=['company','title'];
-  let focusedJob=null,libraryDocuments=[],expandedDocumentId=null;
+  let focusedJob=null,libraryDocuments=[],expandedDocumentId=null,failureKey='';
   let pricing=null,observedSources=null,matrixSignature='';
   let timedJob=null,timingReceived=0;
   let providerSettings={openrouter:{configured:false},databricks:{configured:false,model:''}};
@@ -272,9 +272,9 @@
       const meta=document.createElement('p');meta.className='generator-library-meta';
       const latest=document.createElement('span');latest.textContent='Latest v'+doc.latest.version;
       const status=document.createElement('span');status.className='generator-library-status';status.dataset.status=doc.latest.status;status.textContent=doc.latest.status_label;
-      const updated=document.createElement('time');updated.dateTime=doc.updated_at;updated.textContent='Updated '+new Date(doc.updated_at).toLocaleString();
+      const updated=document.createElement('time');updated.dateTime=doc.updated_at;updated.textContent='Updated '+new Date(doc.updated_at).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});updated.title=new Date(doc.updated_at).toLocaleString();
       meta.append(latest,status,updated);copy.append(title,meta);
-      if(doc.latest_downloadable){const saved=document.createElement('p');saved.className='generator-help';saved.textContent='Latest downloadable: v'+doc.latest_downloadable.version;copy.append(saved);}
+      if(doc.latest_downloadable && doc.latest_downloadable.id!==doc.latest.id){const saved=document.createElement('span');saved.textContent='Latest downloadable: v'+doc.latest_downloadable.version;meta.append(saved);}
       const selected=doc.latest.status==='awaiting_html_review'?doc.latest:doc.latest_downloadable;
       const open=selected?(selected.status==='awaiting_html_review'?documentLink('Open Document',selected.job_id,'html',true):documentLink('Open Document',selected.pdf_job_id,'pdf',true)):button('Open Document',()=>openProgress(doc.latest.job_id).catch(showError));
       open.classList.add('generator-primary');heading.append(copy,open);
@@ -291,7 +291,7 @@
         if(doc.current_work.notice){const note=document.createElement('p');note.textContent=doc.current_work.notice;work.append(note);}work.append(libraryActions(doc.current_work));history.append(work);}
       for(const version of doc.versions){const row=document.createElement('section');row.className='generator-library-version';row.dataset.version=version.id;
         const name=document.createElement('strong');name.textContent='v'+version.version+(version.is_current?' · Current version':'');
-        const detail=document.createElement('p');detail.className='generator-help';detail.textContent=version.status_label+' · '+new Date(version.updated_at).toLocaleString();row.append(name,detail,libraryActions(version));history.append(row);
+        const detail=document.createElement('p');detail.className='generator-help';detail.textContent=version.status_label+' · '+new Date(version.updated_at).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});row.append(name,detail,libraryActions(version));history.append(row);
       }
       if(!doc.versions.length){const empty=document.createElement('p');empty.className='generator-help';empty.textContent='No saved versions yet. Your first version will appear here when its document is ready for review.';history.append(empty);}
       card.append(heading,history);return card;
@@ -395,6 +395,21 @@
     if($('generator-chef-title').textContent!==title)$('generator-chef-title').textContent=title;
     $('generator-chef-caption').textContent=done?'Your document is ready for your review.':phase==='paused'?'Your saved work is safe.':active?(steps.find(([key])=>key===job.step)?.[1] || 'Getting everything ready'):'A little care in every document.';
   }
+  function renderFailure(job) {
+    const panel=$('generator-failure');panel.hidden=job.status!=='failed';
+    if(panel.hidden){failureKey='';return;}
+    const failure=job.failure_details || {summary:job.error || job.message,chapters:[],issues:job.quality_errors || [],highlights:[],next_action:'Saved work is preserved.',error:job.error};
+    const key=JSON.stringify([job.id,failure]);if(key===failureKey)return;failureKey=key;
+    $('generator-failure-summary').textContent=failure.summary;
+    $('generator-failure-highlights').replaceChildren(...(failure.highlights || []).map(text=>{const p=document.createElement('p');p.className='generator-failure-issue';p.textContent=text;return p;}));
+    const groups=(failure.chapters || []).map(chapter=>{
+      const group=document.createElement('div'),title=document.createElement('h5');title.textContent='Chapter '+chapter.number+(chapter.title?' · '+chapter.title:'');group.append(title);
+      for(const issue of chapter.issues){const p=document.createElement('p');p.className='generator-failure-issue';p.textContent=issue;group.append(p);}return group;
+    });
+    if(failure.issues?.length){const group=document.createElement('div'),heading=document.createElement('h5');heading.textContent='Whole-document checks';group.append(heading);for(const issue of failure.issues){const p=document.createElement('p');p.className='generator-failure-issue';p.textContent=issue;group.append(p);}groups.push(group);}
+    $('generator-failure-chapters').replaceChildren(...groups);$('generator-failure-original').textContent=failure.error || job.error || '';
+    $('generator-failure-action').textContent=failure.next_action;$('generator-failure-more').open=false;
+  }
   function workflow(job={status:'idle',step:'',events:[],message:'Start generation to follow the actual workflow.'}) {
     timedJob=job;timingReceived=performance.now();renderTiming();
     renderChef(job);
@@ -406,8 +421,9 @@
     document.querySelector('.generator-layout').classList.toggle('is-focused',!!job.id && !freshSetup);
     if(job.id && focusedJob!==job.id){if(!freshSetup)$('generator-configuration').open=false;focusedJob=job.id;}
     $('generator-configuration-context').textContent=freshSetup?'New document · v1.0':job.id?(job.config?.title || 'Document')+' · v'+(job.config?.version || '1.0'):'Set up your document';
-    $('generator-workflow-status').textContent=(job.worker_online===false && running?'Worker heartbeat is missing; live progress is unavailable. ':'')+(job.message || job.error || job.status);
+    $('generator-workflow-status').textContent=(job.worker_online===false && running?'Worker heartbeat is missing; live progress is unavailable. ':'')+(job.status==='failed'?(job.failure_details?.summary || job.error || job.message || 'Generation failed'):(job.message || job.status));
     const intentLabels={summarize:'Preserve intent & evidence',outline:'Plan structure & examples',review:'Review intent & accuracy',assemble:'Quality gate & document layout'};
+    const failurePanel=$('generator-failure');failurePanel.remove();
     const reviewJump=$('generator-review-jump'),reviewActions=$('generator-review-actions'),reviewFocused=reviewActions.contains(document.activeElement)?document.activeElement:null;reviewActions.remove();
     const resumeButton=$('generator-resume'),resumeFocused=document.activeElement===resumeButton;resumeButton.remove();
     $('generator-steps').replaceChildren(...steps.map(([key,label],i)=>{
@@ -451,6 +467,9 @@
     if(!resumeButton.hidden && resumeStep){resumeStep.querySelector('.generator-step-copy').append(resumeButton);resumeStep.classList.add('has-resume');}
     else $('generator-cancel').before(resumeButton);
     if(resumeFocused && !resumeButton.hidden)resumeButton.focus({preventScroll:true});
+    const failedStep=$('generator-steps').querySelector('[data-step="'+job.step+'"] .generator-step-copy');
+    if(job.status==='failed' && failedStep)failedStep.append(failurePanel);else $('generator-steps').after(failurePanel);
+    renderFailure(job);
     $('generator-recovery-status').hidden=!recovery.blocked_reason && !recovery.retry_at && !['failed','cancelled'].includes(job.status);
     $('generator-recovery-status').textContent=recovery.blocked_reason || (recovery.retry_at?'Automatic recovery · attempt '+recovery.attempts+' of 3 · '+(retryWait?'retry in '+retryWait+'s.':'retry due now.')+' Completed stages and saved responses will be reused.':recovery.can_resume?'Resume continues this version from saved progress. Completed work and existing Batch requests are reused.':'');
     $('generator-cost-actual').textContent=job.id?(job.config?.provider==='databricks'?'Databricks usage is billed in your workspace; USD charges are not returned by this endpoint.':job.cost==null?'Model cost: not yet reported by OpenRouter.':'Reported usage cost so far (OpenRouter + BYOK): '+usd(Number(job.cost)))+(job.unreported_calls?' · Some completed charges have not been reported.':'')+(job.warnings?.length?' · '+job.warnings.length+' review/source warnings.':''):'';
@@ -582,7 +601,7 @@
   $('generator-library-unfinished').addEventListener('change',()=>renderLibrary());
   window.addEventListener('nxflo-admin-tab',event=>{if(event.detail==='generator-tab')load();});
   window.addEventListener('nxflo-owner-session',event=>{csrf=event.detail.csrf;});
-  window.addEventListener('nxflo-session-ended',()=>{csrf='';loaded=false;config=null;active=null;watched=null;timedJob=null;renderTiming();$('generator-editor').hidden=false;$('generator-logo-preview').querySelector('img').removeAttribute('src');$('generator-logo-preview').hidden=true;$('generator-logo-empty').hidden=false;$('generator-logo-help').hidden=false;logoDrop.classList.remove('has-logo');logoDrop.setAttribute('aria-label','Upload company logo');clearTimeout(pollTimer);clearTimeout(saveTimer);form.reset();libraryDocuments=[];expandedDocumentId=null;$('generator-library-search').value='';$('generator-library-unfinished').checked=false;$('generator-library-count').textContent='';$('generator-jobs').replaceChildren();$('generator-review-actions').hidden=true;$('generator-review-jump').hidden=true;$('generator-html-status').hidden=true;});
+  window.addEventListener('nxflo-session-ended',()=>{csrf='';loaded=false;config=null;active=null;watched=null;timedJob=null;renderTiming();$('generator-editor').hidden=false;$('generator-logo-preview').querySelector('img').removeAttribute('src');$('generator-logo-preview').hidden=true;$('generator-logo-empty').hidden=false;$('generator-logo-help').hidden=false;logoDrop.classList.remove('has-logo');logoDrop.setAttribute('aria-label','Upload company logo');clearTimeout(pollTimer);clearTimeout(saveTimer);form.reset();libraryDocuments=[];expandedDocumentId=null;$('generator-library-search').value='';$('generator-library-unfinished').checked=false;$('generator-library-count').textContent='';$('generator-jobs').replaceChildren();$('generator-review-actions').hidden=true;$('generator-review-jump').hidden=true;$('generator-html-status').hidden=true;$('generator-failure').hidden=true;failureKey='';});
   window.addEventListener('beforeunload',event=>{if(dirty || saving || uploading){event.preventDefault();event.returnValue='';}});
   workflow();
 

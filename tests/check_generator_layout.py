@@ -40,7 +40,7 @@ def check():
                             'created_at':'2026-11-07T00:00:00Z','updated_at':'2026-11-07T00:00:20Z','server_time':time.time(),
                             'config':{**DEFAULTS,'title':'Investment & Return Simulator'},'events':[{'step':key,'status':'complete'} for key in ('collect','summarize')],
                             'worker_online':True,'recovery':{'can_resume':status=='failed','blocked_reason':''},'wait_state':{},'step_progress':{},
-                            'warnings':[],'billing':[],'cost':0,'unreported_calls':0,'message':'Plan structure & examples '+status,'error':''})
+                            'warnings':[],'billing':[],'cost':0,'unreported_calls':0,'failure_details':{'summary':'Draft evidence checks failed.','highlights':['A prose number is absent from the original material: 0.3.'],'chapters':[{'number':3,'title':'Pricing comparison','issues':['A source quote is missing.']},{'number':8,'title':'Adapter architecture','issues':['An original author message is missing.']}],'issues':[],'error':'Intent/provenance gate rejected draft.','next_action':'Saved corrections were checked. Unchanged responses may fail again.'} if status=='failed' else None,'message':'Plan structure & examples '+status,'error':''})
                     def resume(route):
                         stage['status']='queued';route.fulfill(status=202,json={'id':job_id,'status':'queued'})
                     page=ctx.new_page();page.on('pageerror',lambda error:errors.append(str(error)))
@@ -66,6 +66,13 @@ def check():
                     for field in ('width','x'):
                         values=[sample[field] for sample in samples]
                         assert max(values)-min(values)<1,(width,field,min(values),max(values))
+                    failure=page.locator('[data-step=outline] #generator-failure');assert failure.is_visible()
+                    assert '0.3' in failure.inner_text()
+                    failure.locator('#generator-failure-more>summary').click()
+                    assert 'Adapter architecture' in page.locator('#generator-failure-chapters').inner_text()
+                    assert 'A source quote is missing.' in page.locator('#generator-failure-chapters').inner_text()
+                    assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth')
+                    if width in (1440,375):failure.scroll_into_view_if_needed();page.screenshot(path='/tmp/nxflo-failure-details-'+str(width)+'.png')
                     configuration=page.locator('#generator-configuration').bounding_box()
                     compact=page.locator('#generator-workflow').bounding_box()
                     assert not page.locator('#generator-configuration').evaluate('el=>el.open')

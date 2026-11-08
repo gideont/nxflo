@@ -33,6 +33,10 @@ def check():
                     page.goto(origin+'/admin.html');page.get_by_role('button',name='Sign in with Google',exact=True).click();page.locator('#admin-workspace').wait_for(state='visible');page.locator('#generator-tab').click()
                     cards=page.locator('.generator-library-document');cards.first.wait_for();assert cards.count()==2
                     assert page.locator('.generator-library-versions[open]').count()==0
+                    assert page.locator('#generator-history-title').inner_text()=='List of Documents'
+                    page.wait_for_function("() => document.querySelector('.generator-library-document')?.getBoundingClientRect().height > 0")
+                    height=cards.first.evaluate('el=>el.getBoundingClientRect().height')
+                    assert height<(140 if width>900 else 280),(width,height)
                     doc=page.locator('[data-document="'+original['document_id']+'"]');doc.locator('summary').click()
                     assert doc.locator('.generator-library-version').count()==2
                     assert doc.locator('.generator-library-version').first.locator('strong').inner_text()=='v1.1 · Current version'
