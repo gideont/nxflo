@@ -259,31 +259,29 @@ def check(widths=(1440,375,320,430)):
                     assert page.locator('#generator-panel').is_visible()
                     # Complete fixture output checks UI and authenticated downloads; the engine suite validates actual PDFs.
                     directory=Path(temp)/'generated'/job;directory.mkdir(parents=True)
-                    (directory/'document.html').write_text('<!doctype html><html><body>Generated test report</body></html>')
+                    (directory/'document.html').write_text('<!doctype html><html><head><title>Report</title></head><body>Generated test report</body></html>')
                     review_events=events+[{'step':step,'status':'complete'} for step in ('summarize','outline','draft','review','polish','charts','assemble')]
                     saved_state=json.loads(connection.execute('SELECT state FROM generator_jobs WHERE id=?',(job,)).fetchone()[0]);saved_state['next_step']='html_review'
                     connection.execute("UPDATE generator_jobs SET status='awaiting_html_review',step='html_review',state=?,events=?,message='HTML is ready. Preview the document, then choose Continue to PDF.' WHERE id=?",(json.dumps(saved_state),json.dumps(review_events),job))
-                    page.locator('#generator-html-review').wait_for(state='visible')
+                    page.locator('#generator-review-actions').wait_for(state='visible')
                     assert page.locator('[data-step=html_review]').get_attribute('data-state')=='review'
                     assert page.locator('#generator-result').is_hidden()
                     assert page.request.get(origin+'/bms_integration_hub/api/admin/generator/jobs/'+job+'/download/pdf').status==409
                     assert page.locator('[data-step=html_review] #generator-review-jump').is_visible()
                     assert page.locator('#generator-review-jump').count()==1
                     if width in (1440,375):page.locator('[data-step=html_review]').screenshot(path='/tmp/nxflo-step10-'+str(width)+'.png')
-                    page.locator('#generator-review-jump').click()
-                    assert 'Generated test report' in page.frame_locator('#generator-html-frame').locator('body').inner_text()
-                    page.reload();page.locator('#generator-html-review').wait_for(state='visible')
+                    with page.expect_popup() as opened:page.locator('#generator-review-jump').click()
+                    preview=opened.value;preview.wait_for_load_state()
+                    assert 'Generated test report' in preview.locator('body').inner_text();preview.close()
+                    page.reload();page.locator('#generator-review-actions').wait_for(state='visible')
                     assert page.locator('#generator-approve-html').is_enabled()
-                    page.locator('#generator-review-jump').click()
-                    assert not page.evaluate('document.documentElement.scrollWidth>document.documentElement.clientWidth'),'HTML preview overflow'
-                    assert page.locator('#generator-html-frame').bounding_box()['width']<=width
-                    if width in (1440,375):page.locator('#generator-html-review').screenshot(path='/tmp/nxflo-html-review-'+str(width)+'.png')
-                    with page.expect_download() as html_download:page.locator('#generator-html-download').click()
-                    assert html_download.value.suggested_filename.endswith('.html')
+                    assert page.locator('#generator-html-frame').count()==0
+                    assert not page.evaluate('document.documentElement.scrollWidth>document.documentElement.clientWidth'),'HTML review controls overflow'
+                    if width in (1440,375):page.locator('[data-step=html_review]').screenshot(path='/tmp/nxflo-html-review-'+str(width)+'.png')
                     page.locator('#generator-approve-html').click()
                     page.locator('#generator-cancel').wait_for(state='visible')
                     assert json.loads(connection.execute('SELECT state FROM generator_jobs WHERE id=?',(job,)).fetchone()[0])['html_approved'] is True
-                    assert page.locator('#generator-html-review').is_hidden()
+                    assert page.locator('#generator-review-actions').is_hidden()
                     (directory/'document.pdf').write_bytes(b'%PDF-browser-fixture')
                     events +=[{'step':step,'status':'complete'} for step in ('summarize','outline','draft','review','polish','charts','assemble','html_review','pdf','deliver')]
                     state=json.loads(connection.execute('SELECT state FROM generator_jobs WHERE id=?',(job,)).fetchone()[0]);state.update(document={'chapters':[{'title':'Existing findings','paragraphs':['Existing supported analysis [B1].'],'charts':[]}]},sources=[{'id':'B1','label':'Brief','text':mixed}])

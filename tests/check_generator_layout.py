@@ -36,7 +36,7 @@ def check():
                     stage={'status':'failed'};errors=[];job_id='layout-fixture'
                     def job(route):
                         status=stage['status']
-                        route.fulfill(status=200,json={'id':job_id,'status':status,'step':'outline','pipeline_version':2,
+                        route.fulfill(status=200,json={'id':job_id,'status':status,'step':'html_review' if status=='awaiting_html_review' else 'outline','pipeline_version':2,
                             'created_at':'2026-11-07T00:00:00Z','updated_at':'2026-11-07T00:00:20Z','server_time':time.time(),
                             'config':{**DEFAULTS,'title':'Investment & Return Simulator'},'events':[{'step':key,'status':'complete'} for key in ('collect','summarize')],
                             'worker_online':True,'recovery':{'can_resume':status=='failed','blocked_reason':''},'wait_state':{},'step_progress':{},
@@ -102,6 +102,30 @@ def check():
                         page.screenshot(path='/tmp/nxflo-stable-workflow-'+str(width)+'.png')
                     if width<=430:
                         page.locator('.nav-tools-toggle').click();assert page.locator('#tools-menu').is_visible()
+                    approvals=[]
+                    def approve(route):
+                        approvals.append(True);stage['status']='queued';route.fulfill(status=202,json={'id':job_id,'status':'queued'})
+                    page.route('**/jobs/'+job_id+'/approve-html',approve)
+                    ctx.route('**/jobs/'+job_id+'/download/html?view=1',lambda route:route.fulfill(status=200,content_type='text/html',body='<h1>Page 1 preview</h1>'))
+                    stage['status']='awaiting_html_review';page.reload()
+                    review=page.locator('[data-step=html_review] #generator-review-jump')
+                    proceed=page.locator('[data-step=html_review] #generator-approve-html')
+                    review.wait_for(state='visible');assert proceed.is_visible()
+                    assert review.get_attribute('target')=='_blank'
+                    assert page.locator('#generator-html-frame').count()==0
+                    review_box=review.bounding_box();continue_box=proceed.bounding_box()
+                    assert continue_box['x']>=review_box['x']+review_box['width']-1
+                    assert abs(continue_box['y']-review_box['y'])<1
+                    assert min(review_box['height'],continue_box['height'])>=44
+                    assert page.locator('[data-step=html_review]').bounding_box()['height']<180
+                    assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth')
+                    if width in (1440,375):
+                        review.scroll_into_view_if_needed();page.screenshot(path='/tmp/nxflo-step10-actions-'+str(width)+'.png')
+                    original_url=page.url
+                    with page.expect_popup() as opened:review.click()
+                    preview=opened.value;preview.wait_for_load_state();assert 'Page 1 preview' in preview.locator('body').inner_text();preview.close()
+                    assert page.url==original_url
+                    proceed.click();page.locator('#generator-review-actions').wait_for(state='hidden');assert len(approvals)==1
                     assert not errors,errors
                     page.unroute_all(behavior='wait');ctx.close()
                 browser.close()

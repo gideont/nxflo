@@ -250,7 +250,7 @@
       const actions=document.createElement('div');actions.className='generator-actions';
       if(['ready','needs_review'].includes(job.status)){for(const kind of ['pdf','html']){const link=document.createElement('a');link.className='admin-button';link.textContent='Download '+kind.toUpperCase();link.href=endpoint+'/jobs/'+job.id+'/download/'+kind;actions.append(link);}}
       if(['queued','running','awaiting_html_review','failed','cancelled','ready','needs_review'].includes(job.status))actions.append(button('View progress',()=>watch(job.id)));
-      if(job.status==='awaiting_html_review')actions.append(button('Preview HTML',async()=>{await watch(job.id);$('generator-html-review').scrollIntoView({behavior:'smooth',block:'start'});}));
+      if(job.status==='awaiting_html_review'){const preview=document.createElement('a');preview.className='admin-button';preview.textContent='Preview HTML';preview.href=endpoint+'/jobs/'+job.id+'/download/html?view=1';preview.target='_blank';preview.rel='noopener';actions.append(preview);}
       if(job.can_resume)actions.append(button('Resume generation',()=>resume(job.id).catch(showError)));
       actions.append(button(['ready','needs_review'].includes(job.status)?'Revise document':'Use configuration',()=>loadVersion(job.id).catch(showError)));
       row.append(copy,actions);return row;
@@ -363,7 +363,7 @@
     $('generator-configuration-context').textContent=job.id?(job.config?.title || 'Document')+' · v'+(job.config?.version || '1.0'):'Set up your document';
     $('generator-workflow-status').textContent=(job.worker_online===false && running?'Worker heartbeat is missing; live progress is unavailable. ':'')+(job.message || job.error || job.status);
     const intentLabels={summarize:'Preserve intent & evidence',outline:'Plan structure & examples',review:'Review intent & accuracy',assemble:'Quality gate & document layout'};
-    const reviewJump=$('generator-review-jump'),reviewFocused=document.activeElement===reviewJump;reviewJump.remove();
+    const reviewJump=$('generator-review-jump'),reviewActions=$('generator-review-actions'),reviewFocused=reviewActions.contains(document.activeElement)?document.activeElement:null;reviewActions.remove();
     const resumeButton=$('generator-resume'),resumeFocused=document.activeElement===resumeButton;resumeButton.remove();
     $('generator-steps').replaceChildren(...steps.map(([key,label],i)=>{
       if(job.pipeline_version===2 || job.status==='idle')label=intentLabels[key] || label;
@@ -378,8 +378,8 @@
       const count=document.createElement('small');count.className='generator-step-count';count.hidden=true;
       copy.append(name,state,elapsed,count);li.append(dot,copy);return li;
     }));
-    $('generator-steps').querySelector('[data-step=html_review] .generator-step-copy').append(reviewJump);
-    if(reviewFocused)reviewJump.focus({preventScroll:true});
+    const reviewStep=$('generator-steps').querySelector('[data-step=html_review]');reviewStep.querySelector('.generator-step-copy').append(reviewActions);reviewStep.classList.toggle('has-review',job.status==='awaiting_html_review');
+    if(reviewFocused)reviewFocused.focus({preventScroll:true});
     renderStepTimes(job,job.server_time || Date.now()/1000);
     const wait=job.wait_state || {};
     $('generator-wait-status').hidden=!running || (!wait.label && !job.batch_wait);
@@ -393,12 +393,10 @@
     }
     $('generator-progress').hidden=job.status==='idle';$('generator-progress').max=steps.length;$('generator-progress').value=done?steps.length:Math.min(steps.length-1,complete.size);
     const reviewing=job.status==='awaiting_html_review';
-    $('generator-html-review').hidden=!reviewing;$('generator-review-jump').hidden=!reviewing;
-    if(reviewing){
-      const url=endpoint+'/jobs/'+job.id+'/download/html';
-      $('generator-html-open').href=url+'?view=1';$('generator-html-download').href=url;
-      if($('generator-html-frame').getAttribute('src')!==url+'?view=1')$('generator-html-frame').src=url+'?view=1';
-    }else{$('generator-html-frame').removeAttribute('src');$('generator-html-status').textContent='';}
+    reviewActions.hidden=!reviewing;reviewJump.hidden=!reviewing;
+    $('generator-html-status').hidden=!reviewing;
+    if(reviewing){reviewJump.href=endpoint+'/jobs/'+job.id+'/download/html?view=1';}
+    else $('generator-html-status').textContent='';
     $('generator-result').hidden=!done;$('generator-cancel').hidden=!running;
     const recovery=job.recovery || {},retryWait=recovery.retry_at?Math.max(0,Math.ceil(recovery.retry_at-(job.server_time || Date.now()/1000))):0;
     resumeButton.hidden=!recovery.can_resume || (running && (!job.batch_wait || recovery.retry_at));
@@ -433,7 +431,7 @@
   $('generator-approve-html').addEventListener('click',async()=>{
     if(!watched)return;
     const id=watched,button=$('generator-approve-html');button.disabled=true;
-    try{await request('/jobs/'+id+'/approve-html',json('POST',{}));watch(id);message('HTML approved. Continuing to PDF export.');}
+    try{await request('/jobs/'+id+'/approve-html',json('POST',{}));await watch(id);message('HTML approved. Continuing to PDF export.');}
     catch(error){$('generator-html-status').textContent=error.message;showError(error);}
     finally{button.disabled=false;}
   });
@@ -520,7 +518,7 @@
   $('generator-refresh').addEventListener('click',()=>load(true));
   window.addEventListener('nxflo-admin-tab',event=>{if(event.detail==='generator-tab')load();});
   window.addEventListener('nxflo-owner-session',event=>{csrf=event.detail.csrf;});
-  window.addEventListener('nxflo-session-ended',()=>{csrf='';loaded=false;config=null;active=null;watched=null;timedJob=null;renderTiming();$('generator-editor').hidden=false;$('generator-logo-preview').querySelector('img').removeAttribute('src');$('generator-logo-preview').hidden=true;$('generator-logo-empty').hidden=false;$('generator-logo-help').hidden=false;logoDrop.classList.remove('has-logo');logoDrop.setAttribute('aria-label','Upload company logo');clearTimeout(pollTimer);clearTimeout(saveTimer);form.reset();$('generator-jobs').replaceChildren();$('generator-html-review').hidden=true;$('generator-review-jump').hidden=true;$('generator-html-frame').removeAttribute('src');});
+  window.addEventListener('nxflo-session-ended',()=>{csrf='';loaded=false;config=null;active=null;watched=null;timedJob=null;renderTiming();$('generator-editor').hidden=false;$('generator-logo-preview').querySelector('img').removeAttribute('src');$('generator-logo-preview').hidden=true;$('generator-logo-empty').hidden=false;$('generator-logo-help').hidden=false;logoDrop.classList.remove('has-logo');logoDrop.setAttribute('aria-label','Upload company logo');clearTimeout(pollTimer);clearTimeout(saveTimer);form.reset();$('generator-jobs').replaceChildren();$('generator-review-actions').hidden=true;$('generator-review-jump').hidden=true;$('generator-html-status').hidden=true;});
   window.addEventListener('beforeunload',event=>{if(dirty || saving || uploading){event.preventDefault();event.returnValue='';}});
   workflow();
 

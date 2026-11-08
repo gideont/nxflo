@@ -37,7 +37,7 @@ def check():
                     page.locator('#admin-workspace').wait_for(state='visible')
                     page.locator('#generator-tab').click()
                     page.wait_for_function("document.querySelector('#generator-save-state').textContent!=='Not loaded'")
-                    page.locator('#generator-html-review').wait_for(state='visible')
+                    page.locator('#generator-review-actions').wait_for(state='visible')
                     assert not page.locator('#generator-configuration').evaluate('el=>el.open')
                     page.locator('#generator-configuration>summary').click()
                     page.locator('[name=document_intent]').select_option('product_concept')
@@ -46,7 +46,7 @@ def check():
                     page.locator('#generator-save').click()
                     page.wait_for_function("document.querySelector('#generator-save-state').textContent==='Saved'")
                     page.reload();page.wait_for_function("document.querySelector('#generator-save-state').textContent!=='Not loaded'")
-                    page.locator('#generator-html-review').wait_for(state='visible')
+                    page.locator('#generator-review-actions').wait_for(state='visible')
                     assert page.locator('[name=document_intent]').input_value()=='product_concept'
                     assert page.locator('[name=youtube],#generator-documents,[name=web_search],[name=web_budget_usd]').count()==0
                     page.locator('#generator-configuration>summary').click()
@@ -57,11 +57,11 @@ def check():
                     page.locator('#generator-save').click();page.wait_for_function("document.querySelector('#generator-save-state').textContent==='Saved'")
                     page.locator('[name=version_override]').uncheck();assert page.locator('[name=version]').input_value()=='1.0'
                     page.locator('#generator-configuration>summary').click()
-                    page.locator('#generator-html-review').wait_for(state='visible')
-                    page.locator('#generator-html-frame').scroll_into_view_if_needed()
-                    frame=page.frame_locator('#generator-html-frame')
-                    frame.locator('.worked-financials').wait_for(state='visible')
-                    assert frame.locator('.calculated-figure').count()==14
+                    page.locator('#generator-review-actions').wait_for(state='visible')
+                    with page.expect_popup() as opened:page.locator('#generator-review-jump').click()
+                    frame=opened.value;frame.locator('body[data-pagination="ready"]').wait_for()
+                    frame.locator('.pagedjs_pages .worked-financials').first.wait_for(state='visible')
+                    assert frame.locator('.pagedjs_pages .calculated-figure').count()==14
                     assert frame.locator('.report-data-table').count()>=12
                     assert frame.locator('body').inner_text().find('FP&A')>=0
                     assert frame.locator('body').inner_text().find('Worked investment scenarios')>=0
@@ -73,9 +73,10 @@ def check():
                         page.locator('#generator-workflow').scroll_into_view_if_needed();page.screenshot(path='/tmp/nxflo-intent-ui-'+str(width)+'.png')
                         # Standalone source uses the same authenticated document and CSS.
                         paper=ctx.new_page();paper.goto(origin+'/bms_integration_hub/api/admin/generator/jobs/'+fixture.id+'/download/html?view=1')
-                        paper.locator('.worked-financials h3').scroll_into_view_if_needed();paper.screenshot(path='/tmp/nxflo-intent-paper-'+str(width)+'.png')
+                        paper.locator('body[data-pagination="ready"]').wait_for();paper.locator('.pagedjs_pages .worked-financials h3').first.scroll_into_view_if_needed();paper.screenshot(path='/tmp/nxflo-intent-paper-'+str(width)+'.png')
                         paper.locator('.calculated-figure').nth(5).scroll_into_view_if_needed();paper.screenshot(path='/tmp/nxflo-intent-heatmap-'+str(width)+'.png')
                         assert paper.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth')
+                    frame.close()
                     # A failed planning step owns its recovery action, at every viewport.
                     resumes=[]
                     job_snapshot=page.request.get(origin+'/bms_integration_hub/api/admin/generator/jobs/'+fixture.id).json()
