@@ -8,6 +8,7 @@ from .generation_errors import GenerationError
 POLICY_VERSION=1
 LEGAL=re.compile(r'\b(?:regulat(?:ion|ory|ions)|bylaws?|zoning|MEHKO|MIKO|legaliz\w*|licens(?:e|ing)|permits?|statut(?:e|ory)|insurance coverage|food premises|clients? per day|home.occupation|strata|insurance|bans?|prohibit\w*)\b',re.I)
 CRITICAL=re.compile(r'fabricat\w*|invented (?:citation|source|quote|data)|incorrect (?:calculation|arithmetic)|broken calculation|contradict(?:s|ory|ion)',re.I)
+RESEARCH_INTEGRITY=re.compile(r'fabricat\w*|invented (?:citation|source|quote|data)|incorrect (?:calculation|arithmetic)|broken calculation|internal(?:ly)? (?:document |manuscript )?contradict\w*|self.contradict\w*|contradict\w* (?:\w+ ){0,3}(?:formulas?|calculations?|arithmetic)',re.I)
 MISSING=re.compile(r'unverified|uncorroborated|without (?:external |source )?(?:verification|evidence|citations)|no (?:exact |matching |external |source )*(?:evidence|citations)|lack\w* (?:external |source )?(?:verification|evidence|corroboration)|cannot be certified|requiring verification',re.I)
 
 
@@ -61,7 +62,8 @@ def review_findings(review,state,blocks):
             cleaned=re.sub(r'not (?:for )?(?:a )?(?:demonstrated |actual )?contradiction','',reason,flags=re.I)
             advisory=(check['criterion']=='accuracy' and declared=='unverified_claim') or legacy
             if state.get('research_policy')==2 and declared=='unverified_claim' and MISSING.search(reason):advisory=True
-            if advisory and not CRITICAL.search(cleaned):kind='verification'
+            critical=RESEARCH_INTEGRITY if state.get('research_policy')==2 else CRITICAL
+            if advisory and not critical.search(cleaned):kind='verification'
         findings.append({'code':check['criterion'],'kind':kind,'reason':reason if valid else check['criterion']+': review references unknown or missing publication evidence.','blocks':ids if valid else []})
     return findings,bound
 

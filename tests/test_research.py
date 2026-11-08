@@ -145,6 +145,21 @@ class ResearchTests(unittest.TestCase):
                 with self.assertRaises(ResearchPaused):verifier.sources(state,base,0,claims)
             self.assertEqual(len(calls),4)
         engine.db.close()
+    def test_legacy_search_with_provider_normalized_query_reuses_saved_operation_id(self):
+        engine=Engine(self.path,self.id);verifier=Verifier(engine);state={'sources':[]};calls=[]
+        claims=[{'id':'c','text':'A regulatory claim.','kind':'regulatory','query':'official state rule','blocks':['P0.0']}]
+        base=claims[0]['query']+' official controlling law implementation guidance primary source'
+        def retrieval(*args,**kwargs):
+            method,url,body,headers,provider=args[5];calls.append((url,body))
+            if url.endswith('/search'):return {'query':' '.join(body['query'].split()),'results':[{'url':RULE},{'url':GUIDE}],'usage':{'credits':2}}
+            return {'results':[{'url':u,'raw_content':SOURCE} for u in body['urls']],'usage':{'credits':1}}
+        with patch('portal_api.research_client.model_rates',return_value=RATES),patch('portal_api.research_client.monitored_call',side_effect=retrieval),patch('portal_api.generation_sources.public_addresses',return_value=['93.184.216.34']):
+            verifier.client.search(base+'\n missing original evidence',advanced=True)
+            sources=verifier.sources(state,base+' a changed finding',1,claims)
+        self.assertEqual({s['url'] for s in sources},{RULE,GUIDE})
+        self.assertEqual(sum(u.endswith('/search') for u,b in calls),1)
+        self.assertEqual(sum(u.endswith('/extract') for u,b in calls),1)
+        engine.db.close()
     def test_failed_corrective_recheck_cannot_loop_or_clear_warning(self):
         self.bad_recheck=True;job=self.start();row=self.run_job(job['id']);self.assertEqual(row['status'],'needs_review',row['error'])
         state=json.loads(row['state']);self.assertEqual(state['document'],self.source_state['document']);self.assertFalse(state.get('research_corrections'))

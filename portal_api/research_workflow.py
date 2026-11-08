@@ -9,7 +9,7 @@ from .generation_errors import GenerationError
 from .research_store import ResearchPaused
 from .research_client import ResearchClient,POLICY
 
-VALIDATION_POLICY=3
+VALIDATION_POLICY=4
 RETRIEVAL_POLICY=2
 
 
@@ -128,14 +128,20 @@ class Verifier:
         chosen=self.store.cached(key)
         if chosen is None:
             base=claims[0]['query']+(' official controlling law implementation guidance primary source' if any(c['kind']=='regulatory' for c in claims) else ' original primary source')
+            normalized=' '.join(base[:1500].split())
             # Adopt rounds from jobs started before explicit round checkpoints.
-            for row in self.e.db.execute("SELECT result FROM generator_research_ops WHERE document_id=? AND kind='research-tavily:search' AND status='complete' ORDER BY created_at",(self.store.document_id,)):
+            for row in self.e.db.execute("SELECT identity,result FROM generator_research_ops WHERE document_id=? AND kind='research-tavily:search' AND status='complete' AND substr(created_at,1,10)=? ORDER BY created_at",(self.store.document_id,datetime.now(timezone.utc).date().isoformat())):
                 prior=json.loads(row['result'] or '{}').get('query','')
-                if (round_index==0 and prior==base[:1500]) or (round_index==1 and prior.startswith(base+' ')):
-                    query=prior;break
-            chosen={'query':query};self.store.save(key,chosen)
+                comparable=' '.join(prior.split())
+                if (round_index==0 and comparable==normalized) or (round_index==1 and comparable.startswith(normalized+' ')):
+                    chosen={'query':prior,'operation':row['identity']};break
+            chosen=chosen or {'query':query};self.store.save(key,chosen)
         query=chosen['query']
-        response=self.client.search(query,advanced=round_index==1)
+        if chosen.get('operation'):
+            prior=self.store.operation(chosen['operation'])
+            if not prior or prior['status']!='complete':raise ResearchPaused('provider_uncertain','The saved search operation must be reconciled before another request.')
+            response=json.loads(prior['result'])
+        else:response=self.client.search(query,advanced=round_index==1)
         urls=[]
         for result in response.get('results',[])[:5]:
             url=result.get('url','') if isinstance(result,dict) else ''

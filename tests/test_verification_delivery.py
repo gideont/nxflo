@@ -81,6 +81,13 @@ class VerificationDeliveryTests(unittest.TestCase):
         self.assertEqual(decide(state,review,review_blocks(state))[0],'WARNING')
         review['checks'][0]['reason']='An unverified assertion includes a fabricated citation.'
         self.assertEqual(decide(state,review,review_blocks(state))[0],'BLOCKED')
+    def test_conflicting_external_evidence_is_advisory_but_internal_formula_contradictions_block(self):
+        state=deepcopy(self.state);state['research_policy']=2;review=deepcopy(state['publication_review'])
+        accuracy=next(c for c in review['checks'] if c['criterion']=='accuracy')
+        accuracy.update(passed=False,issue_type='unverified_claim',evidence_blocks=['P1.0'],reason='Primary evidence contradicts the author-provided regulatory date; it remains unverified and qualified in this draft.')
+        self.assertEqual(decide(state,review,review_blocks(state))[0],'WARNING')
+        accuracy['reason']='The manuscript contains internally contradictory ROI formulas.'
+        self.assertEqual(decide(state,review,review_blocks(state))[0],'BLOCKED')
     def test_fingerprint_invalidates_manuscript_evidence_and_criteria_changes(self):
         state=saved_state(self.config);original=publication_fingerprint(state)
         for change in ('document','source','criteria','chart'):
