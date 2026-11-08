@@ -118,6 +118,7 @@
     $('generator-version-help').textContent=parentId?'The next available version adds 0.1. Expand and enable the override to assign a version yourself.':'Starts at 1.0. Each revision adds 0.1 automatically. Enable the override to assign a version yourself.';
     $('generator-start').firstChild.textContent=parentId?'Generate revision ':'Start generate ';
     $('generator-clear-form').disabled=!loaded || !defaults || busy || !!uploading;
+    $('generator-new-document').disabled=$('generator-clear-form').disabled;
     $('generator-fill-form').disabled=!loaded || !form.elements.topic.value.trim() || tooLong || busy || !!uploading || !!active;
     $('generator-ready').textContent=busy?'Preparing document generation…':uploading?'Processing your uploads…':!configured?'Configure the selected provider on the server to enable generation.':invalid.length?'To enable generation, complete the highlighted fields: '+invalid.join(', ')+'.':'Ready. Blank metadata is filled using '+(databricks?'your Databricks model':'GPT-6 Luna Flex')+'. Uploaded source documents are not sent for metadata autofill.';
   }
@@ -328,7 +329,7 @@
       renderLibrary(data.documents || []);
       if(!pricing)await loadPrices();
       if(!refresh)message('Configuration loaded. Changes are saved automatically.');
-      const running=(data.jobs || []).find(job=>['queued','running'].includes(job.status)) || (data.jobs || []).find(job=>job.status==='awaiting_html_review');
+      const running=(data.jobs || []).find(job=>['queued','running'].includes(job.status)) || (new URLSearchParams(location.search).get('new')==='1'?null:(data.jobs || []).find(job=>job.status==='awaiting_html_review'));
       if(running && (running.status==='awaiting_html_review'?watched!==running.id:active!==running.id))watch(running.id);
       const requested=new URLSearchParams(location.search).get('job');if(requested && !watched)watch(requested);
       ready();
@@ -402,9 +403,10 @@
     const complete=new Set(job.events.filter(event=>event.status==='complete').map(event=>event.step));
     const running=['queued','running'].includes(job.status),done=['ready','needs_review'].includes(job.status);
     document.querySelector('.generator-layout').classList.toggle('is-running',running);
-    document.querySelector('.generator-layout').classList.toggle('is-focused',!!job.id);
-    if(job.id && focusedJob!==job.id){$('generator-configuration').open=false;focusedJob=job.id;}
-    $('generator-configuration-context').textContent=job.id?(job.config?.title || 'Document')+' · v'+(job.config?.version || '1.0'):'Set up your document';
+    const freshSetup=new URLSearchParams(location.search).get('new')==='1';
+    document.querySelector('.generator-layout').classList.toggle('is-focused',!!job.id && !freshSetup);
+    if(job.id && focusedJob!==job.id){if(!freshSetup)$('generator-configuration').open=false;focusedJob=job.id;}
+    $('generator-configuration-context').textContent=freshSetup?'New document · v1.0':job.id?(job.config?.title || 'Document')+' · v'+(job.config?.version || '1.0'):'Set up your document';
     $('generator-workflow-status').textContent=(job.worker_online===false && running?'Worker heartbeat is missing; live progress is unavailable. ':'')+(job.message || job.error || job.status);
     const intentLabels={summarize:'Preserve intent & evidence',outline:'Plan structure & examples',review:'Review intent & accuracy',assemble:'Quality gate & document layout'};
     const reviewJump=$('generator-review-jump'),reviewActions=$('generator-review-actions'),reviewFocused=reviewActions.contains(document.activeElement)?document.activeElement:null;reviewActions.remove();
@@ -532,22 +534,34 @@
     }catch(error){$('generator-fill-status').textContent=error.message;showError(error);}
     finally{busy=false;$('generator-fill-form').textContent='Fill form with AI';ready();}
   });
-  $('generator-clear-form').addEventListener('click',async()=>{
-    if(!loaded || !defaults || busy || uploading || !confirm('Clear document details, research text, source uploads and supporting images? Your company name, logo, website, team contacts, previous documents and any running generation will be kept.'))return;
+  async function resetDocument(startFresh=false) {
+    if(!loaded || !defaults || busy || uploading)return;
+    if(!startFresh && !confirm('Clear document details, research text, source uploads and supporting images? Your company name, logo, website, team contacts, previous documents and any running generation will be kept.'))return;
     busy=true;clearTimeout(saveTimer);ready();
     try{
       if(saving)await saving;
-      const identity=values();form.reset();populate({...structuredClone(defaults),provider:identity.provider,databricks_model:identity.databricks_model,company:identity.company,logo:identity.logo,website:identity.website,teams:identity.teams,prepared_team:identity.prepared_team,title:'',credits:'',topic:'',questions:'',release_date:'',version:'1.0',version_override:false,youtube:'',documents:[],illustrations:[]});
-      parentId=null;focusedJob=null;document.querySelector('.generator-layout').classList.remove('is-focused');$('generator-configuration').open=true;dirty=true;await save();$('generator-fill-status').textContent='Form cleared. Enter a new topic and brief, then use AI to fill the details.';message('Form cleared and saved. Company branding, team contacts and previous documents are preserved.');form.elements.topic.focus();
+      const identity=values();form.reset();populate({...structuredClone(defaults),provider:identity.provider,databricks_model:identity.databricks_model,company:identity.company,logo:identity.logo,website:identity.website,teams:identity.teams,prepared_team:identity.prepared_team,color:identity.color,accent:identity.accent,title:'',credits:'',topic:'',questions:'',release_date:'',version:'1.0',version_override:false,youtube:'',documents:[],illustrations:[]});
+      parentId=null;
+      if(startFresh){
+        const url=new URL(location.href);url.searchParams.delete('job');url.searchParams.set('new','1');history.replaceState(null,'',url.pathname+url.search+url.hash);
+        if(!active){clearTimeout(pollTimer);watched=null;focusedJob=null;workflow();}
+        else focusedJob=watched;
+        $('generator-configuration-context').textContent='New document · v1.0';
+      }else focusedJob=null;
+      document.querySelector('.generator-layout').classList.remove('is-focused');$('generator-configuration').open=true;dirty=true;await save();
+      $('generator-fill-status').textContent='Form cleared. Enter a new topic and brief, then use AI to fill the details.';
+      message('New document ready. Company branding, team contacts and previous documents are preserved.'+(active?' Your current generation continues in the background.':''));form.elements.topic.focus();
     }catch(error){showError(error);}finally{busy=false;ready();}
-  });
+  }
+  $('generator-clear-form').addEventListener('click',()=>resetDocument());
+  $('generator-new-document').addEventListener('click',()=>resetDocument(true));
   form.addEventListener('submit',async event=>{
     event.preventDefault();if(!form.reportValidity() || active || uploading || busy)return;
     busy=true;clearTimeout(saveTimer);ready();message('Saving configuration and starting document generation…');
     try{
       await save();await fillBlankMetadata();
       const result=await request('/jobs',json('POST',{config:values(),parent_id:parentId}));
-      form.elements.version.value=result.version;dirty=true;save().catch(showError);active=result.id;await watch(result.id);await load(true);history.replaceState(null,'','admin.html?job='+result.id);message('Generation queued. You can leave this page and return to follow progress.');
+      form.elements.version.value=result.version;dirty=true;save().catch(showError);active=result.id;history.replaceState(null,'','admin.html?job='+result.id);await watch(result.id);await load(true);message('Generation queued. You can leave this page and return to follow progress.');
     }catch(error){showError(error);}finally{busy=false;ready();}
   });
   $('generator-logo').addEventListener('change',event=>upload(async()=>{const file=event.target.files[0];if(file)config.logo=await image(file);},event.target));

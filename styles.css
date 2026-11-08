@@ -1087,3 +1087,7 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 @media(max-width:600px){.generator-library-document{padding:14px}.generator-library-heading{flex-direction:column;gap:8px}.generator-library-heading>.admin-button{width:100%;text-align:center}.generator-library-meta time{flex-basis:100%}.generator-document-title{font-size:16px}.generator-library-version .generator-actions,.generator-library-current .generator-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.generator-library-version .admin-button,.generator-library-current .admin-button{min-width:0;white-space:normal;text-align:center;padding:8px}}
 
 .generator-library-filter{display:flex;align-items:center;gap:10px;min-height:44px;font-size:13px;color:#35473e;margin:8px 0}.generator-library-filter input{width:18px;height:18px;flex-shrink:0}
+
+.generator-new-document-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px 18px;margin:16px 0}
+.generator-new-document-toolbar .admin-button{min-height:44px}.generator-new-document-toolbar p{margin:0;font-size:12px;color:#687162}
+@media(max-width:520px){.generator-new-document-toolbar .admin-button{width:100%;text-align:center}.generator-new-document-toolbar p{flex-basis:100%}}

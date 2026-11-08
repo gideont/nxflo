@@ -1,5 +1,6 @@
 """Responsive Document Library behavior, without production data or provider calls."""
 import json,threading
+from portal_api import db
 from pathlib import Path
 from flask import Flask,send_from_directory
 from werkzeug.serving import make_server,WSGIRequestHandler
@@ -60,6 +61,50 @@ def check():
                     page.locator('#generator-jobs').scroll_into_view_if_needed()
                     if width in (1440,375):page.screenshot(path='/tmp/nxflo-document-library-'+str(width)+'.png')
                     page.reload();page.locator('.generator-library-document').first.wait_for();assert page.locator('.generator-library-versions[open]').count()==0
+                    # A fresh draft keeps corporate identity and cannot inherit a revision parent.
+                    saved=page.request.get(origin+BASE).json();seed=saved['config']
+                    logo='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+                    seed.update(company='Nexusflow Inc.',website='https://www.nxflo.com',logo=logo,color='#123456',accent='#ab3456',title='Previous document',topic='Previous authored content',feedback='Old correction',change_summary='Previous revision',release_date='2026-11-08',version='4.2',version_override=True,revision_parent=original['id'],documents=[{'name':'prior.txt','text':'Previous source'}],illustrations=[logo])
+                    token=page.request.get(origin+'/bms_integration_hub/api/me').json()['csrf_token']
+                    response=page.request.put(origin+BASE,data={'config':seed,'revision':saved['revision']},headers={'Origin':origin,'X-CSRF-Token':token});assert response.status==200
+                    seed=page.request.get(origin+BASE).json()['config'];logo=seed['logo']
+                    page.reload();page.locator('#generator-new-document').wait_for(state='visible');page.wait_for_function("!document.querySelector('#generator-new-document').disabled")
+                    with db.connect(fixture.path) as c:before_jobs=c.execute('SELECT count(*) FROM generator_jobs').fetchone()[0];before_calls=c.execute('SELECT count(*) FROM generator_calls').fetchone()[0]
+                    dialogs=[];page.on('dialog',lambda dialog:(dialogs.append(dialog.message),dialog.accept()))
+                    page.locator('#generator-new-document').click();page.wait_for_function("document.querySelector('#generator-status').textContent.includes('New document ready')")
+                    assert not dialogs
+                    assert page.locator('#generator-configuration').evaluate('e=>e.open')
+                    for field in ('title','topic','feedback','change_summary','release_date'):assert page.locator('[name='+field+']').input_value()==''
+                    assert page.locator('[name=version]').input_value()=='1.0' and page.locator('[name=version]').get_attribute('readonly') is not None
+                    assert page.locator('#generator-revision').is_hidden()
+                    assert page.locator('[name=company]').input_value()=='Nexusflow Inc.'
+                    assert page.locator('#generator-logo-preview img').get_attribute('src')==logo
+                    fresh=page.request.get(origin+BASE).json()['config']
+                    for field in ('company','website','logo','teams','prepared_team','color','accent','provider','databricks_model'):assert fresh[field]==seed[field],field
+                    assert fresh['documents']==[] and fresh['illustrations']==[] and fresh['revision_parent']=='' and not fresh['version_override']
+                    assert 'new=1' in page.url and 'job=' not in page.url
+                    with db.connect(fixture.path) as c:assert c.execute('SELECT count(*) FROM generator_jobs').fetchone()[0]==before_jobs
+                    page.reload();page.wait_for_function("document.querySelector('#generator-save-state').textContent!=='Not loaded'")
+                    assert page.locator('#generator-configuration').evaluate('e=>e.open')
+                    assert page.locator('[name=topic]').input_value()==''
+                    assert page.locator('#generator-result').is_hidden()
+                    assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth'),width
+                    if width in (1440,375):
+                        page.locator('#generator-new-document').scroll_into_view_if_needed();page.screenshot(path='/tmp/nxflo-new-document-'+str(width)+'.png')
+                    page.locator('[name=title]').fill('Next document');page.locator('[name=topic]').fill('A new author-owned concept for the next document.');page.locator('[name=release_date]').fill('2026-11-08')
+                    page.locator('#generator-start').click();page.wait_for_function("location.search.includes('job=')")
+                    next_id=page.url.split('job=')[1];next_job=page.request.get(origin+BASE+'/jobs/'+next_id).json()
+                    assert next_job['document_id']!=original['document_id'] and next_job['parent_id'] is None and next_job['config']['version']=='1.0'
+                    page.locator('#generator-cancel').wait_for(state='visible');assert not page.locator('#generator-configuration').evaluate('e=>e.open')
+                    page.wait_for_function("!document.querySelector('#generator-new-document').disabled")
+                    page.locator('#generator-new-document').click();page.wait_for_function("document.querySelector('#generator-status').textContent.includes('New document ready')")
+                    page.wait_for_timeout(2300)
+                    assert page.locator('#generator-configuration').evaluate('e=>e.open')
+                    background=page.request.get(origin+BASE+'/jobs/'+next_id).json()
+                    assert background['status']=='queued' and background['config']['title']=='Next document'
+                    with db.connect(fixture.path) as c:
+                        assert c.execute('SELECT count(*) FROM generator_calls').fetchone()[0]==before_calls
+                        c.execute("UPDATE generator_jobs SET status='cancelled' WHERE id=?",(next_id,))
                     if width<=430:page.locator('.nav-tools-toggle').click();assert page.locator('#tools-menu').is_visible()
                     assert not errors,errors
                     ctx.close()
