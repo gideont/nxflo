@@ -317,6 +317,11 @@ class IntentPipeline:
         fingerprint=publication_fingerprint(s)
         review=s.get('publication_review')
         cache_valid=s.get('publication_review_fingerprint')==fingerprint
+        content_fingerprint=publication_fingerprint(s,research_review=0)
+        if s.get('research_policy')==2 and review and (s.get('publication_review_content_fingerprint') or s.get('publication_review_fingerprint'))==content_fingerprint:
+            # Reclassify saved observations when only outcome/protocol handling
+            # changes. Manuscript, evidence and assessment criteria remain bound.
+            cache_valid=True
         # One-time adoption of a legacy rejected review from its durable checkpoint.
         # Require the exact completed paid responses, not a newly synthesized review.
         if s.get('research_policy')!=2 and review and not s.get('publication_review_fingerprint') and s.get('quality_errors'):
@@ -351,14 +356,15 @@ class IntentPipeline:
                 review={'checks':[]};s={**s,'publication_review_deferred':True}
             else:review={'checks':[check for result in reviews for check in result['checks']]}
         # Checkpoint the raw decision before classification or corrective labeling.
-        s={**s,'publication_review':review,'publication_review_fingerprint':fingerprint}
+        s={**s,'publication_review':review,'publication_review_fingerprint':fingerprint,'publication_review_content_fingerprint':content_fingerprint}
         self.e.checkpoint(s)
         from .generation_verification import decide,POLICY_VERSION
         outcome,findings,bound_checks=decide(s,review,blocks)
         gate={'passed':outcome=='PASS','outcome':outcome,'policy_version':POLICY_VERSION,'fingerprint':fingerprint,'checks':bound_checks,'findings':findings}
         if s.get('research_policy')==2:
             from .research_workflow import VALIDATION_POLICY,RETRIEVAL_POLICY
-            gate.update(research_validation_policy=VALIDATION_POLICY,research_retrieval_policy=RETRIEVAL_POLICY)
+            from .generation_verification import RESEARCH_REVIEW_POLICY
+            gate.update(research_validation_policy=VALIDATION_POLICY,research_retrieval_policy=RETRIEVAL_POLICY,research_review_policy=RESEARCH_REVIEW_POLICY)
         if outcome=='BLOCKED':
             failures=[f['code']+': '+f['reason'] for f in findings if f['kind']=='integrity']
             self.e.checkpoint({**s,'quality_errors':failures,'publication_quality':gate})
@@ -370,12 +376,12 @@ class IntentPipeline:
             # rendered draft. It does not rewrite the author's thesis or call AI.
             s={**s,'publication_correction':{'fingerprint':fingerprint,'attempts':1,'kind':'reader_verification_labels'}}
         s={**s,'warnings':list(dict.fromkeys(warnings)),'publication_quality':gate}
-        html=assemble(self.config,{**s,'publication_quality':gate})
+        html=assemble(self.config,{**s,'publication_quality':gate}).replace('\r\n','\n').replace('\r','\n')
         gate['html_hash']=digest(html)
         self.e.directory.mkdir(parents=True,exist_ok=True)
         temporary=self.e.directory/'document.tmp.html';temporary.write_text(html);temporary.replace(self.e.directory/'document.html')
         (self.e.directory/'sources.json').write_text(json.dumps(s['sources'],ensure_ascii=False))
-        return {**{key:s[key] for key in ('document','verified_title','sources','warnings','research','research_corrections','publication_review_deferred','publication_review','publication_review_fingerprint','publication_correction','verification_research') if key in s},'publication_assets':assets,'publication_calculations':calculations,'publication_quality':gate,'quality_errors':[],'intent_audits':s['intent_audits']+[{'stage':'publication','passed':outcome=='PASS','outcome':outcome,'manuscript_hash':digest(s['document'])}]}
+        return {**{key:s[key] for key in ('document','verified_title','sources','warnings','research','research_corrections','publication_review_deferred','publication_review','publication_review_fingerprint','publication_review_content_fingerprint','publication_correction','verification_research') if key in s},'publication_assets':assets,'publication_calculations':calculations,'publication_quality':gate,'quality_errors':[],'intent_audits':s['intent_audits']+[{'stage':'publication','passed':outcome=='PASS','outcome':outcome,'manuscript_hash':digest(s['document'])}]}
 
     def html_review(self,s):
         assert_publication(s,(self.e.directory/'document.html').read_text())

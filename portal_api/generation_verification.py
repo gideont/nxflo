@@ -6,6 +6,7 @@ from .generation_intent import digest
 from .generation_errors import GenerationError
 
 POLICY_VERSION=1
+RESEARCH_REVIEW_POLICY=2
 LEGAL=re.compile(r'\b(?:regulat(?:ion|ory|ions)|bylaws?|zoning|MEHKO|MIKO|legaliz\w*|licens(?:e|ing)|permits?|statut(?:e|ory)|insurance coverage|food premises|clients? per day|home.occupation|strata|insurance|bans?|prohibit\w*)\b',re.I)
 CRITICAL=re.compile(r'fabricat\w*|invented (?:citation|source|quote|data)|incorrect (?:calculation|arithmetic)|broken calculation|contradict(?:s|ory|ion)',re.I)
 RESEARCH_INTEGRITY=re.compile(r'fabricat\w*|invented (?:citation|source|quote|data)|incorrect (?:calculation|arithmetic)|broken calculation|internal(?:ly)? (?:document |manuscript )?contradict\w*|self.contradict\w*|contradict\w* (?:\w+ ){0,3}(?:formulas?|calculations?|arithmetic)',re.I)
@@ -59,7 +60,7 @@ def review_findings(review,state,blocks):
         ids=check.get('evidence_blocks',[])
         valid=isinstance(ids,list) and bool(ids) and all(isinstance(b,str) and b in blocks for b in ids)
         if check['passed'] and valid:continue
-        reason=check['reason'];kind='integrity'
+        reason=check['reason'];kind='verification' if state.get('research_policy')==2 else 'integrity'
         if check['passed'] and not valid and state.get('research_policy')==2:
             findings.append({'code':'review_protocol:'+check['criterion'],'kind':'verification','reason':'Independent publication review passed '+check['criterion']+' without valid manuscript references. This check cannot certify publication.','blocks':[]})
             continue
@@ -72,7 +73,10 @@ def review_findings(review,state,blocks):
             advisory=(check['criterion']=='accuracy' and declared=='unverified_claim') or legacy
             if state.get('research_policy')==2 and declared=='unverified_claim':advisory=True
             critical=RESEARCH_INTEGRITY if state.get('research_policy')==2 else CRITICAL
-            if advisory and not critical.search(cleaned) and (valid or state.get('research_policy')==2):kind='verification'
+            if state.get('research_policy')==2:
+                if declared=='integrity' or critical.search(cleaned):kind='integrity'
+                elif declared!='unverified_claim':reason+=' The reviewer returned an unclassified failure; this check cannot certify publication.'
+            elif advisory and not critical.search(cleaned) and valid:kind='verification'
         if not valid and kind=='verification':
             ids=[key for key in ids if isinstance(key,str) and key in blocks] if isinstance(ids,list) else []
             reason+=' The reviewer included an unknown manuscript reference; this finding cannot certify publication.'

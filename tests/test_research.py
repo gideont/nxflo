@@ -103,11 +103,23 @@ class ResearchTests(unittest.TestCase):
         from portal_api.generation_quality import assert_publication,publication_fingerprint
         job=self.start();row=self.run_job(job['id']);state=json.loads(row['state'])
         html=(self.path.parent/'generated'/job['id']/'document.html').read_text();original=publication_fingerprint(state)
-        with patch('portal_api.research_workflow.VALIDATION_POLICY',999),patch('portal_api.research_workflow.RETRIEVAL_POLICY',999),patch('portal_api.generation_verification.POLICY_VERSION',999):
+        with patch('portal_api.research_workflow.VALIDATION_POLICY',999),patch('portal_api.research_workflow.RETRIEVAL_POLICY',999),patch('portal_api.generation_verification.POLICY_VERSION',999),patch('portal_api.generation_verification.RESEARCH_REVIEW_POLICY',999):
             self.assertNotEqual(original,publication_fingerprint(state))
             assert_publication(state,html)
             altered=deepcopy(state);altered['sources'][0]['text']+=' altered'
             with self.assertRaises(GenerationError):assert_publication(altered,html)
+    def test_windows_line_endings_in_retrieved_metadata_survive_html_approval_and_pdf_export(self):
+        ordinary=self.tavily
+        def retrieval(*args,**kwargs):
+            result=ordinary(*args,**kwargs)
+            for item in result.get('results',[]):
+                if 'raw_content' in item:item['title']='Official source\r\nRegulatory guidance'
+            return result
+        self.tavily=retrieval;job=self.start();row=self.run_job(job['id']);self.assertEqual(row['status'],'awaiting_html_review',row['error'])
+        state=json.loads(row['state']);self.assertTrue(any('\r' in source.get('label','') for source in state['sources']))
+        html=(self.path.parent/'generated'/job['id']/'document.html').read_bytes();self.assertNotIn(b'\r',html)
+        self.assertEqual(self.owner.post(BASE+'/jobs/'+job['id']+'/approve-html',json={},headers=self.headers).status_code,202)
+        row=self.run_job(job['id']);self.assertEqual(row['status'],'ready',row['error'])
     def test_malformed_publication_verifier_delivers_warning_without_unchanged_retry_billing(self):
         self.inconclusive=True;ordinary=self.provider
         def provider(models,method,path,body=None):

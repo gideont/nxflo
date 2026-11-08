@@ -106,6 +106,12 @@ class VerificationDeliveryTests(unittest.TestCase):
         self.assertEqual(decide(state,review,review_blocks(state))[0],'WARNING')
         review['checks'][0].update(passed=False,issue_type='integrity',reason='Fabricated citation in the manuscript.')
         self.assertEqual(decide(state,review,review_blocks(state))[0],'BLOCKED')
+    def test_unclassified_boolean_failure_is_incomplete_review_not_manuscript_integrity(self):
+        state=deepcopy(self.state);state['research_policy']=2;review=deepcopy(state['publication_review'])
+        check=review['checks'][0];check.update(passed=False,issue_type='none',evidence_blocks=['P1.0'],reason='The example survives and the criterion is met subject to secondary-source authority.')
+        self.assertEqual(decide(state,review,review_blocks(state))[0],'WARNING')
+        check.update(reason='A fabricated citation was found in the manuscript.')
+        self.assertEqual(decide(state,review,review_blocks(state))[0],'BLOCKED')
     def test_fingerprint_invalidates_manuscript_evidence_and_criteria_changes(self):
         state=saved_state(self.config);original=publication_fingerprint(state)
         for change in ('document','source','criteria','chart'):
