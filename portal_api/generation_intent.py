@@ -110,12 +110,12 @@ def source_owned_outline(plan, contract):
         return max([i for i,h in enumerate(headings) if h['start']<=position] or [0])
     result=[]
     for i,heading in enumerate(headings):
-        assigned=[item for item in contract['items'] if owner(item['start'])==i]
+        assigned=[item for item in contract['items'] if item.get('scope')!='instruction' and owner(item['start'])==i]
         suggestions=[ch for ch in chapters if heading['id'] in ch['section_keys']]
         # Preserve subordinate figure/table requirements and the closing call to
         # action under their original body section, including omitted anchors.
-        sections=[h['id'] for h in contract['structure'] if owner(h['start'])==i]
-        brief='Rewrite this original section faithfully, including its examples, tables and visual requirements.'
+        sections=[h['id'] for h in contract['structure'] if owner(h['start'])==i and (contract.get('input_kind')!='production_brief' or headings[0]['start']<=h['start']<contract['content_end'])]
+        brief=('Write finished reader-facing content for this planned page. Execute its teaching/content instructions; do not reproduce the production instructions as prose. Preserve its examples and requested visuals.' if contract.get('input_kind')=='production_brief' else 'Rewrite this original section faithfully, including its examples, tables and visual requirements.')
         if suggestions:brief+=' Planning notes: '+' '.join(ch['brief'] for ch in suggestions)
         brief+=' Required original messages: '+'; '.join(item['label'] for item in assigned)
         charts=list(dict.fromkeys(chart for ch in suggestions for chart in ch['charts_needed']))
@@ -149,9 +149,18 @@ def build_contract(config,parts,extractions):
         structure.append({'id':'H'+str(len(structure)+1),'title':title,'level':len(match.group(0).split()[0]),'start':match.start(),'end':match.end()})
     if not any(item['role']=='thesis' for item in items):raise GenerationError('The author\'s thesis was not extracted. No document will be drafted without it.')
     if len(items)>300 or len(structure)>300:raise GenerationError('The author contract is too large for a faithful single document. Split the brief into documents.')
-    return {'version':2,'mode':mode,'source_hash':digest(text),'source_length':len(text),'items':items,'structure':structure,'narrative_structure':narrative_headings(structure),
+    contract={'version':2,'mode':mode,'source_hash':digest(text),'source_length':len(text),'items':items,'structure':structure,'narrative_structure':narrative_headings(structure),
             'required_sections':PRODUCT_SECTIONS if mode=='product_concept' else ['research_question','evidence','analysis','conclusions'] if mode=='research_report' else ['problem','architecture','implementation','worked_examples','tradeoffs'] if mode=='technical_paper' else [entry['id'] for entry in narrative_headings(structure)],
             'financial_examples':bool(re.search(r'investment|financial|FP&A|cash flow|NPV|IRR',text,re.I)) and (mode=='product_concept' or bool(re.search(r'hypothetical|worked example',text,re.I)))}
+    pages=[h for h in structure if re.match(r'PAGE\s+\d+\s*[—–:-]',h['title'],re.I)]
+    if mode=='content_preserving_rewrite' and len(pages)>=2 and re.search(r'DOCUMENT GENERATION BRIEF',text,re.I):
+        body=[h for h in pages if not re.match(r'PAGE\s+1\s*[—–:-]\s*COVER\b',h['title'],re.I)]
+        end=next((h['start'] for h in structure if h['start']>pages[-1]['start'] and h['level']<pages[-1]['level']),len(text))
+        contract.update(input_kind='production_brief',content_end=end,narrative_structure=body,required_sections=[h['id'] for h in body])
+        first_thesis=next(item['id'] for item in items if item['role']=='thesis')
+        for item in items:
+            if not body[0]['start']<=item['start']<end and item['id']!=first_thesis:item['scope']='instruction'
+    return contract
 
 
 def validate_contract(contract, original):
@@ -174,7 +183,8 @@ def context(state,refs=None):
             else:spans.append((start,end))
         material='\n'.join('[Original characters '+str(a)+':'+str(b)+']\n'+original[a:b] for a,b in spans)
         if len(material)>48000:raise GenerationError('This chapter needs more original author material than its context budget. Split its outline assignment.')
-    return ('\nAUTHOR CONTRACT (preserve the meaning of these original anchors):\n'+json.dumps(contract,ensure_ascii=False)+
+    direction='\nThis is a production brief: execute its page/content plan. Editorial mission, design rules, source requirements and quality checks guide production; do not publish them as chapters or instructions to the reader.\n' if contract.get('input_kind')=='production_brief' else ''
+    return (direction+'\nAUTHOR CONTRACT (preserve the meaning of these original anchors):\n'+json.dumps(contract,ensure_ascii=False)+
             '\nORIGINAL AUTHOR MATERIAL (authoritative for intent; empirical claims remain subject to verification):\n'+material)
 
 
@@ -210,7 +220,7 @@ def fidelity_issues(document,contract,plans=None):
             found.add(anchor['id']);covered.add(anchor['id'])
         if plans:
             for ref in set(plans[i].get('author_refs',[]))-found:issues.append('Chapter '+str(i+1)+' lost author anchor '+ref+'.')
-    for ref in set(known)-covered:issues.append('The manuscript lost original author anchor '+ref+' ('+known[ref]['label']+').')
+    for ref in {ref for ref,item in known.items() if item.get('scope')!='instruction'}-covered:issues.append('The manuscript lost original author anchor '+ref+' ('+known[ref]['label']+').')
     if contract['mode']=='content_preserving_rewrite':
         headings=[entry['title'] for entry in contract.get('narrative_structure',[]) ] if 'narrative_structure' in contract else [entry['title'] for entry in contract['structure'] if entry['level']==(2 if any(e['level']==2 for e in contract['structure']) else 1)]
         if headings:

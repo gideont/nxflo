@@ -14,7 +14,7 @@ from .research_workflow import report,VALIDATION_POLICY,RETRIEVAL_POLICY
 from .generation_verification import RESEARCH_REVIEW_POLICY
 
 
-def start_verification(connection,parent_id,Error):
+def start_verification(connection,parent_id,Error,delivery_policy='draft_first'):
     with db.transaction(connection):
         parent=connection.execute('SELECT * FROM generator_jobs WHERE id=?',(parent_id,)).fetchone()
         if not parent:raise Error('Document not found',404)
@@ -28,11 +28,11 @@ def start_verification(connection,parent_id,Error):
         ensure_budget(connection,parent['document_id'],5)
         limit=summary(connection,parent['document_id'])['limit']
         research=original.get('research',{})
-        if original.get('operation')=='verification' and research.get('status')=='complete' and research.get('validation_policy')==VALIDATION_POLICY and research.get('retrieval_policy')==RETRIEVAL_POLICY and original.get('publication_quality',{}).get('research_review_policy')==RESEARCH_REVIEW_POLICY and research.get('model')==settings['model'] and research.get('as_of')==db.now()[:10] and research.get('budget',{}).get('limit',0)>=limit:
+        if original.get('delivery_policy','strict')==delivery_policy and original.get('operation')=='verification' and research.get('status')=='complete' and research.get('validation_policy')==VALIDATION_POLICY and research.get('retrieval_policy')==RETRIEVAL_POLICY and original.get('publication_quality',{}).get('research_review_policy')==RESEARCH_REVIEW_POLICY and research.get('model')==settings['model'] and research.get('as_of')==db.now()[:10] and research.get('budget',{}).get('limit',0)>=limit:
             from .research_workflow import blocks
             if research.get('block_hashes')=={key:digest(value['text']) for key,value in blocks({**original,'config':config}).items()}:
                 return {'id':parent['id'],'document_id':parent['document_id'],'version_id':parent['version_id'],'version':config['version'],'status':parent['status'],'reused':True}
-        input_key=digest({'document':original['document'],'sources':original.get('sources',[]),'model':settings['model'],'limit':limit,'date':db.now()[:10],'policy':2,'validation':VALIDATION_POLICY,'retrieval':RETRIEVAL_POLICY,'review_policy':RESEARCH_REVIEW_POLICY})
+        input_key=digest({'document':original['document'],'sources':original.get('sources',[]),'model':settings['model'],'limit':limit,'date':db.now()[:10],'policy':2,'validation':VALIDATION_POLICY,'retrieval':RETRIEVAL_POLICY,'review_policy':RESEARCH_REVIEW_POLICY,'delivery_policy':delivery_policy})
         for row in connection.execute('SELECT id,state,config,status,document_id,version_id FROM generator_jobs WHERE document_id=? ORDER BY created_at DESC',(parent['document_id'],)):
             saved=json.loads(row['state'])
             if saved.get('verification_request_key')==input_key:
@@ -45,6 +45,8 @@ def start_verification(connection,parent_id,Error):
         if parent['status']=='awaiting_html_review':raise Error('Continue the HTML review before creating a verification revision.',409)
         history=prepare_revision(connection,parent_id,config,Error);created=db.now();history.append(history_entry(config,created))
         state=deepcopy(original)
+        state['delivery_policy']=delivery_policy
+        for key in ('delivery_saved_work_only','delivery_issues','delivery_chapter_diagnostics','delivery_original_candidate','delivery_original_outline'):state.pop(key,None)
         for key in ('publication_review_deferred','publication_quality','publication_review','publication_review_fingerprint','publication_review_content_fingerprint','html_approved','quality_errors','blocked_candidate','chapter_diagnostics','research'):
             state.pop(key,None)
         state.update(revision_history=history,research_policy=2,operation='verification',verification_request_key=input_key,verification_parent=parent_id,next_step='assemble',reused_generation=True)
@@ -60,7 +62,7 @@ def start_verification(connection,parent_id,Error):
 def register(app,connection,login_required,Error,job_or_404,base):
     @app.post(base+'/jobs/<job_id>/verify')
     @login_required(owner=True)
-    def verify(job_id):return jsonify(start_verification(connection(),job_id,Error)),202
+    def verify(job_id):return jsonify(start_verification(connection(),job_id,Error,app.config.get('GENERATOR_DELIVERY_POLICY','draft_first'))),202
 
     @app.get(base+'/jobs/<job_id>/verification')
     @login_required(owner=True)

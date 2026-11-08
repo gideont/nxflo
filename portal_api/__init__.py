@@ -59,6 +59,7 @@ def persistent_secret(path):
 def create_app(config=None, verifier=None):
     app = Flask(__name__)
     app.config.update(
+        GENERATOR_DELIVERY_POLICY='draft_first',
         DATABASE=os.environ.get('BMS_DATABASE_PATH', '/data/bms_hub.sqlite3'),
         GOOGLE_CLIENT_ID=os.environ.get('BMS_GOOGLE_CLIENT_ID', DEFAULT_CLIENT_ID),
         OWNER_EMAIL=os.environ.get('BMS_OWNER_EMAIL', 'gideont@gmail.com'),

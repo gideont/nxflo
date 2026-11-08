@@ -21,7 +21,7 @@ def fake_verifier(credential, audience):
 
 
 def make_test_app(path):
-    return create_app({'TESTING': True, 'GENERATOR_PIPELINE_VERSION': 1, 'DATABASE': str(path), 'PUBLIC_ORIGIN': ORIGIN,
+    return create_app({'TESTING': True, 'GENERATOR_PIPELINE_VERSION': 1, 'GENERATOR_DELIVERY_POLICY':'strict', 'DATABASE': str(path), 'PUBLIC_ORIGIN': ORIGIN,
                        'COOKIE_SECURE': False, 'SIGNING_KEY': b'test-signing-key-not-used-in-production'}, verifier=fake_verifier)
 
 

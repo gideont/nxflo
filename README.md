@@ -8,6 +8,7 @@ Nexusflow’s website and private workspace.
 - Customer portal with projects, planning, tasks, and team access.
 - Intent-aware AI document generator with source uploads, worked financial scenarios, publication checks, and revisions.
 - Independent factual verification using the selected Databricks model and Tavily, with shared research allowances and correction logs.
+- Ready-to-use drafts with private review and verification notes saved in each document’s version history.
 - Searchable Document Library with saved versions, downloads, and resumable generation.
 - Branded HTML and PDF reports using the Folio template.
 - Responsive layouts for desktop and mobile.

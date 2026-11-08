@@ -60,7 +60,7 @@ class IntentPipeline:
         return update
 
     def outline(self,s):
-        c=self.config;contract=s['author_contract'];refs=[item['id'] for item in contract['items']]
+        c=self.config;contract=s['author_contract'];refs=[item['id'] for item in contract['items'] if item.get('scope')!='instruction']
         prompt=('Plan this document around its original author intent. '+instructions(c)+context(s)+evidence_context(s['sources'])+
                 '\nReturn JSON {"title":"...","chapters":[{"title":"...","brief":"...","charts_needed":[],"section_keys":[],"author_refs":[]}]}. '
                 'Assign EVERY author anchor to at least one chapter; do not omit any. The opening chapter must communicate the thesis. '
@@ -203,6 +203,8 @@ class IntentPipeline:
             return self.validate_chapters(s,chapters,stage,False)
         if diagnostics or errors:
             detailed=[('Chapter '+str(i+1)+': '+problem) for i,problems in diagnostics.items() for problem in problems]+errors
+            from .generation_delivery import enabled,retain
+            if enabled(s):return retain(self,s,document,stage,list(dict.fromkeys(detailed)),diagnostics)
             self.e.checkpoint({**s,'blocked_candidate':document,'quality_errors':list(dict.fromkeys(detailed)),
                                'chapter_diagnostics':{str(i+1):problems for i,problems in diagnostics.items()}})
             raise GenerationError('Intent/provenance gate rejected '+stage+': '+' '.join(detailed[:8]))
@@ -253,28 +255,45 @@ class IntentPipeline:
                 figures,_=financial_figures(group)
                 for figure in figures if self.config['charts'] else []:result['charts'].append({**figure,'chapter':self.financial_chapter(s),'group_id':group['id']})
             result['warnings']=[w for w in result['warnings'] if not w.startswith('Chart coverage:')]
+        from .generation_delivery import enabled,issues
+        if enabled(s):
+            issues(s,'visual review',result.get('warnings',[]))
+            result['delivery_issues']=s.get('delivery_issues',[])
         return result
 
     def financial_chapter(self,s):
         return next((i for i,plan in enumerate(s['outline']['chapters']) if 'financial_projections' in plan['section_keys']),len(s['outline']['chapters'])-1)
 
     def assemble(self,s):
+        from .generation_delivery import enabled,issues,persist,sanitize,critical_issues,capture_findings
+        best_effort=enabled(s)
+        if best_effort:
+            issues(s,'source and editorial review',[w for w in s.get('warnings',[]) if w!='Private review notes are saved in version history.'])
+            issues(s,'source review',[source['warning'] for source in s.get('sources',[]) if source.get('warning')])
+            s={**s,'document':sanitize(s,s['document'])}
+            critical=critical_issues(s,self.config)
+            if critical:raise GenerationError('Critical integrity correction is still required: '+' '.join(critical))
         preflight=local_publication_issues(s['document'],s['author_contract'],self.config,s['sources'],s['outline']['chapters'],s.get('financials'),s.get('research'))
-        if preflight:
+        if preflight and best_effort:issues(s,'publication validation',preflight)
+        if preflight and not best_effort:
             gate={'outcome':'BLOCKED','passed':False,'fingerprint':publication_fingerprint(s),'findings':[{'kind':'integrity','reason':issue,'blocks':[]} for issue in preflight]}
             self.e.checkpoint({**s,'quality_errors':preflight,'publication_quality':gate})
             raise GenerationError('Publication-quality gate rejected the manuscript: '+' '.join(preflight[:8]))
-        if s.get('research_policy')==2 and self.config.get('web_search'):
+        if s.get('research_policy')==2 and self.config.get('web_search') and not s.get('delivery_saved_work_only'):
             from .research_workflow import run
             before=digest(s['document'])
             s=run(self.e,s)
+            if best_effort:
+                critical=critical_issues(s,self.config)
+                if critical:raise GenerationError('Critical integrity correction is still required: '+' '.join(critical))
             if before!=digest(s['document']):s={**s,**self.charts(s)}
         errors=local_publication_issues(s['document'],s['author_contract'],self.config,s['sources'],s['outline']['chapters'],s.get('financials'),s.get('research'))
         if s['author_contract']['financial_examples'] and not s.get('financials'):errors.append('Required worked financial projections are missing.')
         if s.get('financials'):
             expected=build_financials({'groups':[{k:v for k,v in group.items() if k!='results'} for group in s['financials']['groups']]})
             if expected!=s['financials']:errors.append('Stored financial outputs contradict their registered formulas or assumptions.')
-        if errors:
+        if errors and best_effort:issues(s,'publication validation',errors)
+        if errors and not best_effort:
             gate={'outcome':'BLOCKED','passed':False,'fingerprint':publication_fingerprint(s),'findings':[{'kind':'integrity','reason':error,'blocks':[]} for error in errors]}
             self.e.checkpoint({**s,'quality_errors':errors,'publication_quality':gate})
             raise GenerationError('Publication-quality gate rejected the manuscript: '+' '.join(errors[:8]))
@@ -283,7 +302,10 @@ class IntentPipeline:
         if s.get('research_policy')!=2:s=research(self,s)
         legacy_sources_unchanged=s['sources']==previous_sources
         from .generation_publication import publication_assets,review_blocks
-        assets,calculations=publication_assets(s)
+        try:assets,calculations=publication_assets(s)
+        except GenerationError as error:
+            if not best_effort:raise
+            issues(s,'visual review',[str(error)]);assets,calculations=[],[]
         s={**s,'publication_assets':assets,'publication_calculations':calculations}
         self.e.checkpoint(s)
         blocks=review_blocks(s)
@@ -310,7 +332,7 @@ class IntentPipeline:
                 '\nManuscript: '+json.dumps(s['document'])+'\nCalculated hypothetical models: '+json.dumps(s.get('financials'))+'\nPublication blocks: '+json.dumps(blocks))
             # Do not submit an oversized research packet. The unchanged legacy
             # guard below still rejects oversized legacy publication requests.
-            if s.get('research_policy')==2 and len(prompt.encode())>180000:
+            if (s.get('research_policy')==2 or best_effort) and len(prompt.encode())>180000:
                 publication_context_paused=True;prompts=[];break
             if len(prompt)>300000:raise GenerationError('The manuscript exceeds the publication-review context budget. Split it into smaller documents.')
             prompts.append(prompt)
@@ -335,7 +357,11 @@ class IntentPipeline:
         if not cache_valid:
             self.config['_publication_block_ids']=sorted(blocks)
             try:
-                if s.get('research_policy')==2 and self.config.get('web_search'):
+                if best_effort and s.get('delivery_saved_work_only'):
+                    first=next(iter(blocks))
+                    reviews=[{'checks':[{'criterion':key,'passed':False,'evidence_blocks':[first],'reason':'Saved validation and bounded automatic corrections were used. Outstanding verification remains in private version history.','issue_type':'unverified_claim'} for key in all_criteria]}]
+                    s={**s,'publication_review_deferred':True}
+                elif (s.get('research_policy')==2 and self.config.get('web_search')) or (best_effort and publication_context_paused):
                     from .research_client import ResearchClient
                     from .research_store import ResearchPaused
                     try:
@@ -360,6 +386,12 @@ class IntentPipeline:
         self.e.checkpoint(s)
         from .generation_verification import decide,POLICY_VERSION
         outcome,findings,bound_checks=decide(s,review,blocks)
+        if best_effort:
+            capture_findings(s,'publication review',findings)
+            from .generation_verification import RESEARCH_INTEGRITY
+            critical=[f for f in findings if f['kind']=='integrity' and RESEARCH_INTEGRITY.search(f['reason'])]
+            if critical:raise GenerationError('Critical integrity correction is still required: '+' '.join(f['reason'] for f in critical))
+            outcome='WARNING' if s.get('delivery_issues') or findings else outcome
         gate={'passed':outcome=='PASS','outcome':outcome,'policy_version':POLICY_VERSION,'fingerprint':fingerprint,'checks':bound_checks,'findings':findings}
         if s.get('research_policy')==2:
             from .research_workflow import VALIDATION_POLICY,RETRIEVAL_POLICY
@@ -376,20 +408,28 @@ class IntentPipeline:
             # rendered draft. It does not rewrite the author's thesis or call AI.
             s={**s,'publication_correction':{'fingerprint':fingerprint,'attempts':1,'kind':'reader_verification_labels'}}
         s={**s,'warnings':list(dict.fromkeys(warnings)),'publication_quality':gate}
+        if best_effort:
+            s['warnings']=['Private review notes are saved in version history.'] if outcome=='WARNING' else []
+            persist(self.e,s)
         html=assemble(self.config,{**s,'publication_quality':gate}).replace('\r\n','\n').replace('\r','\n')
         gate['html_hash']=digest(html)
         self.e.directory.mkdir(parents=True,exist_ok=True)
         temporary=self.e.directory/'document.tmp.html';temporary.write_text(html);temporary.replace(self.e.directory/'document.html')
         (self.e.directory/'sources.json').write_text(json.dumps(s['sources'],ensure_ascii=False))
-        return {**{key:s[key] for key in ('document','verified_title','sources','warnings','research','research_corrections','publication_review_deferred','publication_review','publication_review_fingerprint','publication_review_content_fingerprint','publication_correction','verification_research') if key in s},'publication_assets':assets,'publication_calculations':calculations,'publication_quality':gate,'quality_errors':[],'intent_audits':s['intent_audits']+[{'stage':'publication','passed':outcome=='PASS','outcome':outcome,'manuscript_hash':digest(s['document'])}]}
+        return {**{key:s[key] for key in ('document','delivery_issues','delivery_chapter_diagnostics','verified_title','sources','warnings','research','research_corrections','publication_review_deferred','publication_review','publication_review_fingerprint','publication_review_content_fingerprint','publication_correction','verification_research') if key in s},'publication_assets':assets,'publication_calculations':calculations,'publication_quality':gate,'quality_errors':[],'intent_audits':s['intent_audits']+[{'stage':'publication','passed':outcome=='PASS','outcome':outcome,'manuscript_hash':digest(s['document'])}]}
 
     def html_review(self,s):
         assert_publication(s,(self.e.directory/'document.html').read_text())
         if s.get('publication_quality',{}).get('outcome')=='WARNING':
-            self.e.message('Complete draft with verification warnings. Exporting HTML and PDF for review; factual accuracy is not certified.')
+            self.e.message('Document ready for export. Review notes are saved in version history.' if s.get('delivery_policy')=='draft_first' else 'Complete draft with verification warnings. Exporting HTML and PDF for review; factual accuracy is not certified.')
             return {}
         return self.e.html_review(s)
 
     def pdf(self,s):
         assert_publication(s,(self.e.directory/'document.html').read_text())
-        return self.e.pdf(s)
+        result=self.e.pdf(s)
+        from .generation_delivery import enabled,finish_pdf
+        if enabled(s):
+            finish_pdf(self.e,s)
+            result.update(delivery_issues=s.get('delivery_issues',[]),delivered_pages=s['delivered_pages'],publication_quality=s['publication_quality'],warnings=s.get('warnings',[]))
+        return result

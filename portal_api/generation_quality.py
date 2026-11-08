@@ -109,7 +109,7 @@ def local_publication_issues(document,contract,config,sources,plans,financials=N
 
 
 def criteria(contract):
-    return ['author:'+item['id'] for item in contract['items']]+['section:'+key for key in contract['required_sections']]+['purpose','accuracy','formulas','publication']
+    return ['author:'+item['id'] for item in contract['items'] if item.get('scope')!='instruction']+['section:'+key for key in contract['required_sections']]+['purpose','accuracy','formulas','publication']
 
 
 def validate_publication_review(review,document,contract):
@@ -135,6 +135,7 @@ def publication_fingerprint(state,*,verification_policy=None,research_validation
         if review_policy:payload['research_review']=review_policy
     if 'publication_assets' in state:
         payload.update(publication_assets=state['publication_assets'],publication_calculations=state.get('publication_calculations',[]))
+    if state.get('delivery_policy')=='draft_first':payload['delivery_policy']='draft_first'
     return digest(payload)
 
 

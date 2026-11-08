@@ -76,6 +76,7 @@ def review_findings(review,state,blocks):
             if state.get('research_policy')==2:
                 if declared=='integrity' or critical.search(cleaned):kind='integrity'
                 elif declared!='unverified_claim':reason+=' The reviewer returned an unclassified failure; this check cannot certify publication.'
+                if check['criterion']=='purpose' and declared!='unverified_claim':kind='integrity'
             elif advisory and not critical.search(cleaned) and valid:kind='verification'
         if not valid and kind=='verification':
             ids=[key for key in ids if isinstance(key,str) and key in blocks] if isinstance(ids,list) else []

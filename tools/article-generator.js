@@ -293,13 +293,45 @@
         if(doc.current_work.notice){const note=document.createElement('p');note.textContent=doc.current_work.notice;work.append(note);}work.append(libraryActions(doc.current_work));history.append(work);}
       for(const version of doc.versions){const row=document.createElement('section');row.className='generator-library-version';row.dataset.version=version.id;
         const name=document.createElement('strong');name.textContent='v'+version.version+(version.is_current?' · Current version':'');
-        const detail=document.createElement('p');detail.className='generator-help';detail.textContent=version.status_label+' · '+new Date(version.updated_at).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});row.append(name,detail,libraryActions(version));history.append(row);
+        const detail=document.createElement('p');detail.className='generator-help';detail.textContent=version.status_label+' · '+new Date(version.updated_at).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});row.append(name,detail,libraryActions(version));
+        if(version.review_job_id)row.append(versionReviewNotes(version));
+        history.append(row);
       }
       if(!doc.versions.length){const empty=document.createElement('p');empty.className='generator-help';empty.textContent='No saved versions yet. Your first version will appear here when its document is ready for review.';history.append(empty);}
       card.append(heading,history);return card;
     });
     if(!content.length){const empty=document.createElement('p');empty.textContent=term?'No documents match your search.':'No documents yet. Start your first document above.';content.push(empty);}
     $('generator-jobs').replaceChildren(...content);$('generator-library-count').textContent=visible.length+' of '+documents.length+' documents';
+  }
+  function versionReviewNotes(version) {
+    const box=document.createElement('details'),summary=document.createElement('summary'),body=document.createElement('div');
+    box.className='generator-version-notes';summary.textContent='Review notes ('+(version.review_notes_count || 0)+')';box.append(summary,body);
+    box.addEventListener('toggle',async()=>{
+      if(!box.open || box.dataset.loaded)return;box.dataset.loaded='loading';body.textContent='Loading review notes…';
+      try{
+        const report=await request('/jobs/'+version.review_job_id+'/review-notes'),intro=document.createElement('p');
+        intro.textContent='These checks are saved with this version for later review. The document and preview contain no verification annotations.';
+        const list=document.createElement('ul');
+        for(const issue of report.issues || []){const li=document.createElement('li');li.textContent=(issue.chapter?'Chapter '+issue.chapter+' · ':'')+issue.stage+': '+issue.reason;list.append(li);}
+        body.replaceChildren(intro,list);
+        if(report.verification?.claims?.length){const heading=document.createElement('h5');heading.textContent='Claim verification';body.append(heading);
+          for(const claim of report.verification.claims){const p=document.createElement('p');p.textContent=claim.status+' · '+claim.text+' — '+(claim.reason || '');body.append(p);
+            for(const proof of claim.evidence || []){let url;try{url=new URL(proof.url);}catch{continue;}if(url.protocol!=='https:')continue;
+              const a=document.createElement('a');a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';a.textContent=url.hostname+(proof.retrieved_at?' · '+proof.retrieved_at.slice(0,10):'');body.append(a);}
+          }
+        }
+        for(const change of report.corrections || []){const p=document.createElement('p');p.textContent='Correction: '+change.before+' → '+change.after;body.append(p);}
+        if(report.claim_register?.length){const original=document.createElement('details'),label=document.createElement('summary');label.textContent='Original claim and citation checks';original.append(label);
+          for(const claim of report.claim_register){const p=document.createElement('p');p.textContent='Chapter '+claim.chapter+' · '+claim.statement+' · '+(claim.quote_matches?'Quotation located; factual support still requires review.':'Submitted quotation could not be matched.');original.append(p);
+            if(claim.submitted_quote){const quote=document.createElement('blockquote');quote.textContent=claim.submitted_quote;original.append(quote);}
+            let url;try{url=new URL(claim.source_url);}catch{continue;}if(url.protocol!=='https:')continue;
+            const a=document.createElement('a');a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';a.textContent=claim.source_id+' · '+url.hostname;original.append(a);
+          }body.append(original);
+        }
+        box.dataset.loaded='done';
+      }catch(error){body.textContent=error.message;delete box.dataset.loaded;}
+    });
+    return box;
   }
   async function loadVersion(id,configurationOnly=false) {
     if(busy || active) return message('Wait for the current generation to finish.');
@@ -414,7 +446,7 @@
   }
   function renderResearch(job) {
     const panel=$('generator-research'),research=job.research || {};researchDocumentId=job.document_id || null;
-    panel.hidden=!job.id || (!research.policy && !(research.total_claims>0));if(panel.hidden)return;
+    panel.hidden=!job.id || (!research.policy && !(research.total_claims>0)) || (job.delivery_policy==='draft_first' && ['ready','needs_review'].includes(job.status));if(panel.hidden)return;
     const counts=research.counts || {},budget=research.budget || {};
     $('generator-research-summary').textContent=(research.model || job.config?.databricks_model || 'Selected Databricks model')+' · '+(research.phase || research.status || 'Pending')+' · '+(counts.supported || 0)+' supported · '+(counts.corrected || 0)+' corrected · '+(counts.contradicted || 0)+' contradicted · '+(counts.unresolved || 0)+' unresolved'+(research.message?' · '+research.message:'');
     $('generator-research-cost').textContent='Shared allowance '+usd(budget.limit || 0)+' · estimated use '+usd(budget.estimated_spent || 0)+' · reserved '+usd(budget.reserved || 0)+' · remaining '+usd(budget.remaining || 0)+' · Tavily '+(budget.tavily_credits || 0)+' credits (free/included credits may apply).';
@@ -448,6 +480,7 @@
     if(job.source_metrics && job.config)observedSources={key:sourceSignature(job.config),stats:job.source_metrics};
     const complete=new Set(job.events.filter(event=>event.status==='complete').map(event=>event.step));
     const running=['queued','running'].includes(job.status),done=['ready','needs_review'].includes(job.status);
+    const savedDraft=done && job.delivery_policy==='draft_first';
     document.querySelector('.generator-layout').classList.toggle('is-running',running);
     const freshSetup=new URLSearchParams(location.search).get('new')==='1';
     document.querySelector('.generator-layout').classList.toggle('is-focused',!!job.id && !freshSetup);
@@ -461,12 +494,12 @@
     $('generator-steps').replaceChildren(...steps.map(([key,label],i)=>{
       if(job.pipeline_version===2 || job.status==='idle')label=intentLabels[key] || label;
       const currentState=job.worker_online===false?'stalled':job.wait_state?.label || job.batch_wait || job.recovery?.retry_at?'waiting':job.status==='queued'?'queued':'running';
-      const li=document.createElement('li');li.tabIndex=-1;li.dataset.step=key;li.dataset.state=job.status==='awaiting_html_review' && key==='html_review'?'review':running && job.step===key?currentState:job.status==='failed' && job.step===key?'failed':complete.has(key)?'complete':'pending';
-      const dot=document.createElement('span');dot.className='generator-step-dot';dot.setAttribute('aria-hidden','true');dot.textContent=complete.has(key)?'✓':String(i+1).padStart(2,'0');
+      const li=document.createElement('li');li.tabIndex=-1;li.dataset.step=key;li.dataset.state=job.status==='awaiting_html_review' && key==='html_review'?'review':running && job.step===key?currentState:job.status==='failed' && job.step===key?'failed':complete.has(key) || savedDraft?'complete':'pending';
+      const dot=document.createElement('span');dot.className='generator-step-dot';dot.setAttribute('aria-hidden','true');dot.textContent=complete.has(key) || savedDraft?'✓':String(i+1).padStart(2,'0');
       if(running && job.step===key){dot.classList.add('is-meter');dot.removeAttribute('aria-hidden');dot.setAttribute('role','progressbar');dot.setAttribute('aria-label',label+' progress');dot.setAttribute('aria-valuemin','0');dot.setAttribute('aria-valuemax','100');}
       const copy=document.createElement('div');copy.className='generator-step-copy';const name=document.createElement('strong'),state=document.createElement('small');name.textContent=label;
       const passes=job.events.filter(event=>event.step===key && event.status==='complete').length;
-      state.textContent=li.dataset.state+(passes>1?' · '+passes:'');if(done && key==='rewrite' && !complete.has(key))state.textContent='Not needed';
+      state.textContent=savedDraft && !complete.has(key)?'Saved / not repeated':li.dataset.state+(passes>1?' · '+passes:'');if(done && key==='rewrite' && !complete.has(key))state.textContent='Not needed';
       const elapsed=document.createElement('small');elapsed.className='generator-step-elapsed';elapsed.hidden=true;
       const count=document.createElement('small');count.className='generator-step-count';count.hidden=true;
       copy.append(name,state,elapsed,count);li.append(dot,copy);return li;
@@ -491,7 +524,7 @@
     if(reviewing){reviewJump.href=endpoint+'/jobs/'+job.id+'/download/html?view=1';}
     else $('generator-html-status').textContent='';
     renderResearch(job);
-    const publication=job.publication_quality,publicationPanel=$('generator-publication');publicationPanel.hidden=!publication?.outcome;
+    const publication=job.publication_quality,publicationPanel=$('generator-publication'),privateNotes=job.delivery_policy==='draft_first';publicationPanel.hidden=!publication?.outcome || privateNotes;
     if(publication?.outcome){
       publicationPanel.dataset.outcome=publication.outcome;
       $('generator-publication-title').textContent='Publication status: '+publication.outcome;
@@ -500,7 +533,7 @@
       $('generator-publication-issues').replaceChildren(...issues.map(issue=>{const li=document.createElement('li');li.textContent=issue.reason+(issue.claim?' Statement: '+issue.claim:'');return li;}));
       publicationPanel.querySelector('details').hidden=!issues.length;
     }
-    $('generator-result').querySelector('p').textContent=publication?.outcome==='WARNING'?'Your complete draft is ready with verification warnings. Review the marked statements in the HTML or PDF before distribution.':'Your document is ready. Review the PDF, then choose Revise this document to submit feedback and generate the next version.';
+    $('generator-result').querySelector('p').textContent=privateNotes?'Your document is ready. Review and verification notes are saved in its version history.':publication?.outcome==='WARNING'?'Your complete draft is ready with verification warnings. Review the marked statements in the HTML or PDF before distribution.':'Your document is ready. Review the PDF, then choose Revise this document to submit feedback and generate the next version.';
     $('generator-result').hidden=!done;$('generator-verify-current').disabled=verificationStarting || running;$('generator-cancel').hidden=!running;
     const recovery=job.recovery || {},retryWait=recovery.retry_at?Math.max(0,Math.ceil(recovery.retry_at-(job.server_time || Date.now()/1000))):0;
     resumeButton.hidden=!recovery.can_resume || (running && (!job.batch_wait || recovery.retry_at));
@@ -547,7 +580,7 @@
   $('generator-approve-html').addEventListener('click',()=>approveHtml(watched,$('generator-approve-html')));
   async function resume(id) {
     $('generator-resume').disabled=true;
-    try{await request('/jobs/'+id+'/resume',json('POST',{}));await watch(id);await load(true);message('Continuing from saved progress. Existing requests and completed responses are reused.');}
+    try{await request('/jobs/'+id+'/resume',json('POST',timedJob?.pipeline_version===2?{delivery_policy:'draft_first'}:{}));await watch(id);await load(true);message('Continuing from saved progress. Existing requests and completed responses are reused.');}
     finally{$('generator-resume').disabled=false;}
   }
   $('generator-resume').addEventListener('click',()=>{if(watched)resume(watched).catch(showError);});

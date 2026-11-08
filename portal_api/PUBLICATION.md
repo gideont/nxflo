@@ -1,5 +1,11 @@
 # Publication and verification
 
+New documents use `draft_first` delivery. Bounded author-intent corrections and verification still run, but unresolved evidence and coverage findings are stored in `generator_version_reviews` and exposed only through owner-authenticated version-history notes. HTML, paginated previews and PDF contain no added verification markers, warning banners or evidence-audit appendices. The internal WARNING outcome does not certify accuracy. Invalid citation attributions are removed before export; known fabricated verbatim quotations and inconsistent calculations are not released. Legacy approved files retain their original rendering and approval binding.
+
+Recovery of a failed draft can promote its saved repaired text without repeating paid chapter calls. Production-brief scaffolding is excluded from reader exports when a saved subject chapter is available. Original candidates, diagnostics and the original brief remain retained. Explicit page plans in new production briefs drive the outline; editorial/source rules remain constraints rather than mandatory prose chapters. Page-count shortfalls are recorded in private history after PDF export.
+
+The strict legacy policy below remains available for historical jobs and regression checks.
+
 Generation retains the immutable author brief and intent contract. Missing independent factual evidence does not authorize a change to the author's argument.
 
 `generation_verification.py` classifies the independent review separately from document integrity:

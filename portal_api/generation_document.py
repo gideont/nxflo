@@ -42,7 +42,11 @@ def chart_svg(chart,config,sources):
 def assemble(config,state):
     from .generation_blocks import render_table,worked_examples
     e=lambda text:escape(str(text),quote=True)
+    clean_draft=state.get('delivery_policy')=='draft_first'
     sources=state['sources'];allowed={s['id'] for s in sources}
+    if clean_draft:
+        cited=set(re.findall(r'\[([A-Z]\d+)\]',' '.join(p for ch in state['document']['chapters'] for p in ch['paragraphs'])))
+        sources=[{**s,'warning':''} for s in sources if s.get('text') and (s.get('role')!='author' or s['id'] in cited)]
     def paragraph(text):
         encoded=e(text)
         return re.sub(r'\[([A-Z]\d+)\]',lambda m:'<a href="#source-'+m[1]+'">'+m[0]+'</a>' if m[1] in allowed else m[0],encoded)
@@ -53,6 +57,7 @@ def assemble(config,state):
     editorial_warnings=[w for w in state.get('warnings',[]) if not w.startswith('Verification required:')]
     notes='<section id="editorial-notes" class="appendix editorial-notes"><p class="eyebrow">Appendix · editorial transparency</p><h2>Source and editorial notes</h2><p class="small">Prepared with AI assistance. Review facts, quotations and recommendations before distribution. Source availability and editorial limitations are recorded below.</p>'+('<ul>'+''.join('<li>'+e(warning)+'</li>' for warning in editorial_warnings)+'</ul>' if editorial_warnings else '<p>No source-collection or automated editorial warnings were recorded.</p>')+'</section>'
     if state.get('publication_quality',{}).get('outcome')=='WARNING':notes=notes.replace('No source-collection or automated editorial warnings were recorded.','Factual verification issues are listed in the separate verification register.')
+    if clean_draft:notes=''
     team=next((team for team in config.get('teams',[]) if team['id']==config.get('prepared_team')),None)
     email=team.get('email','') if team else ''
     website=config.get('website','')
@@ -62,7 +67,8 @@ def assemble(config,state):
     cover=cover_markup(config,title,company,date,prepared)
     toc='<nav class="contents" aria-label="Table of contents"><p class="eyebrow">In this document</p><h2>Contents</h2><ol>'+''.join('<li><a href="#chapter-'+str(i)+'">'+e(ch['title'])+'</a></li>' for i,ch in enumerate(state['document']['chapters']))+'<li><a href="#sources">Sources</a></li><li><a href="#editorial-notes">Source and editorial notes</a></li><li><a href="#document-control">Document control and revision history</a></li></ol></nav>' if config['toc'] else ''
     verification=state.get('publication_quality',{})
-    findings=verification.get('findings',[]) if verification.get('outcome')=='WARNING' else []
+    findings=verification.get('findings',[]) if verification.get('outcome')=='WARNING' and not clean_draft else []
+    if clean_draft:toc=toc.replace('<li><a href="#editorial-notes">Source and editorial notes</a></li>','')
     labels={}
     for index,finding in enumerate(findings):
         for block in finding.get('blocks',[]):labels.setdefault(block,[]).append(index+1)
@@ -98,7 +104,7 @@ def assemble(config,state):
     body+='<section id="sources" class="appendix"><p class="eyebrow">Reference register</p><h2>Sources</h2><ol class="sources-list">'+''.join('<li id="source-'+e(s['id'])+'"><strong>['+e(s['id'])+']</strong> '+e(s['label'])+(' · <a rel="noopener noreferrer" href="'+e(s['url'])+'">'+e(s['url'])+'</a>' if s.get('url','').startswith(('https://','http://')) else '')+(' · '+e(s['warning']) if s.get('warning') else '')+'</li>' for s in sources)+'</ol></section>'+notes
     if findings:
         body+='<section id="verification-register" class="appendix verification-register"><h2>Outstanding verification issues</h2><ol>'+''.join('<li id="verification-note-'+str(i+1)+'"><strong>'+e(f['reason'])+'</strong>'+('<p>Unverified statement: '+e(f['claim'])+'</p>' if f.get('claim') else '')+'</li>' for i,f in enumerate(findings))+'</ol></section>'
-    if state.get('research'):
+    if state.get('research') and not clean_draft:
         from .research_render import verification_appendix
         body+=verification_appendix(state)
     history=state.get('revision_history') or [{'version':config.get('version') or '1.0','date':date,'prepared_by':team['name'] if team else 'Not specified','summary':'Initial issue.'}]
@@ -106,6 +112,8 @@ def assemble(config,state):
     if team or website:
         body+='<section id="document-contact" class="document-contact"><h2>Document enquiries</h2><p>For questions regarding this document, please contact:</p><p><strong>'+(e(team['name']) if team else e(company))+'</strong></p>'+('<p><a href="mailto:'+e(email)+'">'+e(email)+'</a></p>' if email else '')+company_link+'</section>'
     body+=document_control
+    if clean_draft:
+        body=body.replace('<p class="small">This record identifies the document issue and its revisions. A generated revision does not imply independent verification or formal approval.</p>','')
     if state.get('pipeline_version')==2:
         body=body.replace('Prepared with AI assistance. Review facts, quotations and recommendations before distribution. Source availability and editorial limitations are recorded below.', 'Prepared with AI assistance from the author’s original material. Empirical evidence is cited separately; illustrative financial scenarios are explicitly labeled and calculated from their stated assumptions.')
     from .generation_layout import REPORT_CSS

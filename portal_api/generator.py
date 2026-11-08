@@ -134,6 +134,8 @@ def register_generator(app, conn, login_required, Error):
         migrate(conn())
         from .research_store import migrate as migrate_research
         migrate_research(conn())
+        from .generation_delivery import migrate as migrate_delivery
+        migrate_delivery(conn())
 
     def job_or_404(job_id):
         row=conn().execute('SELECT * FROM generator_jobs WHERE id=?',(job_id,)).fetchone()
@@ -256,6 +258,7 @@ def register_generator(app, conn, login_required, Error):
             if pipeline_version==2:
                 original=author_material(config)
                 initial.update(prompt_policy_version=2,original_brief=config['topic'],author_original=original,author_source_hash=digest(original))
+                initial['delivery_policy']=app.config.get('GENERATOR_DELIVERY_POLICY','draft_first')
             state=json.dumps(initial,ensure_ascii=False)
             conn().execute('INSERT INTO generator_jobs(id,config,status,step,state,created_at,updated_at,parent_id,message) VALUES(?,?,?,?,?,?,?,?,?)',(job_id,json.dumps(config,ensure_ascii=False),'queued','collect',state,created_at,created_at,parent,'Queued for document generation.'))
             from .generator_library import attach_new
@@ -293,7 +296,7 @@ def register_generator(app, conn, login_required, Error):
         from .research_store import summary as research_summary
         from .research_workflow import report as research_report
         research=research_report(state,research_summary(conn(),row['document_id']))
-        return jsonify(research=research,operation=state.get('operation','generation'),failure_details=failure,chapter_count=chapter_count or None,pipeline_version=state.get('pipeline_version',1),document_intent=json.loads(row['config']).get('document_intent','research_report'),publication_quality=state.get('publication_quality'),intent_audits=state.get('intent_audits',[]),quality_errors=state.get('quality_errors',[]),step_progress=json.loads(row['work_progress']),recovery=recovery_info(conn(),row),server_time=time.time(),wait_state=waiting,batch_wait=batch,billing=breakdown,web_budget=web_budget,source_metrics=metrics,**{k:row[k] for k in ('id','status','step','error','created_at','published_at','parent_id','message','updated_at','document_id','version_id')},config={**DEFAULTS,**{'summary_service':'default','draft_service':'default','polish_service':'default'},**json.loads(row['config'])},events=json.loads(row['events']),worker_online=worker_online(),warnings=json.loads(row['state']).get('warnings',[]),cost=conn().execute('SELECT sum(cost) FROM generator_calls WHERE job_id=? AND cost_known=1',(job_id,)).fetchone()[0],unreported_calls=conn().execute("SELECT count(*) FROM generator_calls WHERE job_id=? AND status='complete' AND cost_known=0",(job_id,)).fetchone()[0])
+        return jsonify(delivery_policy=state.get('delivery_policy','strict'),research=research,operation=state.get('operation','generation'),failure_details=failure,chapter_count=chapter_count or None,pipeline_version=state.get('pipeline_version',1),document_intent=json.loads(row['config']).get('document_intent','research_report'),publication_quality=state.get('publication_quality'),intent_audits=state.get('intent_audits',[]),quality_errors=state.get('quality_errors',[]),step_progress=json.loads(row['work_progress']),recovery=recovery_info(conn(),row),server_time=time.time(),wait_state=waiting,batch_wait=batch,billing=breakdown,web_budget=web_budget,source_metrics=metrics,**{k:row[k] for k in ('id','status','step','error','created_at','published_at','parent_id','message','updated_at','document_id','version_id')},config={**DEFAULTS,**{'summary_service':'default','draft_service':'default','polish_service':'default'},**json.loads(row['config'])},events=json.loads(row['events']),worker_online=worker_online(),warnings=json.loads(row['state']).get('warnings',[]),cost=conn().execute('SELECT sum(cost) FROM generator_calls WHERE job_id=? AND cost_known=1',(job_id,)).fetchone()[0],unreported_calls=conn().execute("SELECT count(*) FROM generator_calls WHERE job_id=? AND status='complete' AND cost_known=0",(job_id,)).fetchone()[0])
 
     @app.post(BASE+'/jobs/<job_id>/resume')
     @login_required(owner=True)
@@ -303,6 +306,16 @@ def register_generator(app, conn, login_required, Error):
             row=job_or_404(job_id)
             if row['status']=='running':return jsonify(id=job_id,status='running'),202
             if row['status'] not in ('failed','cancelled','queued'):raise Error('This document cannot be resumed',409)
+            body=request.get_json(silent=True) or {}
+            if not isinstance(body,dict) or set(body)-{'delivery_policy'} or body.get('delivery_policy') not in (None,'draft_first'):raise Error('Invalid recovery options')
+            if body.get('delivery_policy')=='draft_first':
+                from .generation_delivery import recover,issues
+                from .generation_errors import GenerationError
+                try:saved=recover(json.loads(row['state']),json.loads(row['config']))
+                except GenerationError as error:raise Error(str(error),409)
+                if row['error']:issues(saved,'previous failure',[row['error']])
+                conn().execute('UPDATE generator_jobs SET state=? WHERE id=?',(json.dumps(saved,ensure_ascii=False),job_id))
+                row=job_or_404(job_id)
             info=recovery_info(conn(),row)
             if info['blocked_reason']:raise Error(info['blocked_reason'],409)
             from .generation_providers import ensure_provider
@@ -313,6 +326,13 @@ def register_generator(app, conn, login_required, Error):
             if row['status']=='queued' and info.get('retry_at'):return jsonify(id=job_id,status='queued'),202
             conn().execute("UPDATE generator_jobs SET status='queued',error='',message=?,next_run_at=0,recovery='{}',wait_state='{}',updated_at=? WHERE id=?",('Resuming from saved progress. Existing provider requests and completed responses will be reused.',db.now(),job_id))
         return jsonify(id=job_id,status='queued'),202
+
+    @app.get(BASE+'/jobs/<job_id>/review-notes')
+    @login_required(owner=True)
+    def review_notes(job_id):
+        from .generation_delivery import report
+        row=job_or_404(job_id)
+        return jsonify(report(conn(),row['version_id']))
 
     @app.post(BASE+'/jobs/<job_id>/approve-html')
     @login_required(owner=True)

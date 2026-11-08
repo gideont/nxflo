@@ -78,6 +78,7 @@ def library(connection):
         with db.transaction(connection):backfill(connection)
     docs={r['id']:{'id':r['id'],'title':r['title'],'versions':[],'_versions':[]} for r in connection.execute('SELECT * FROM generator_documents')}
     jobs={}
+    review_notes={r['version_id']:{'count':r['n'],'job_id':r['job_id']} for r in connection.execute("SELECT version_id,job_id,json_array_length(report,'$.issues') AS n FROM generator_version_reviews")}
     for row in connection.execute("""SELECT id,status,step,created_at,updated_at,recovery,next_run_at,version_id,json_extract(state,'$.publication_quality.outcome') AS publication_outcome,
         json_object('title',json_extract(config,'$.title'),'provider',json_extract(config,'$.provider'),'databricks_model',json_extract(config,'$.databricks_model'),
         'summary_model',json_extract(config,'$.summary_model'),'draft_model',json_extract(config,'$.draft_model'),
@@ -97,6 +98,10 @@ def library(connection):
         item={**snapshot(chosen),'id':version['id'],'version':version['version'],'saved':bool(version['saved_at'] or saved),
               'pdf_job_id':final['id'] if final else None,'html_job_id':saved['id'] if saved else None,
               'updated_at':max(r['updated_at'] for r in attempts)}
+        notes=review_notes.get(version['id'])
+        if notes:
+            item.update(review_notes_count=notes['count'],review_job_id=notes['job_id'])
+            if item['saved'] and item['status'] in FINAL:item['status_label']='Ready'
         if chosen['id']!=current['id']:item['recovery']={**snapshot(current),'version':version['version']}
         document=docs[version['document_id']];document['_versions'].append(item)
         if item['saved']:document['versions'].insert(0,item)

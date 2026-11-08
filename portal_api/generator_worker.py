@@ -224,6 +224,7 @@ class Engine:
         from langgraph.graph import StateGraph,START,END
         def route(s):return s.get('next_step','collect')
         def next_step(name,s):
+            if s.get('delivery_policy')=='draft_first' and name=='rewrite':return 'polish'
             if name=='review':return 'rewrite' if any(item['major_issues'] for item in s['reviews']) else 'polish'
             if name=='rewrite':return 'review' if s['passes']<self.config['review_passes'] else 'polish'
             return STEPS[STEPS.index(name)+1] if name!='deliver' else 'end'
