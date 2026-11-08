@@ -48,6 +48,17 @@
     const known=active && Number.isFinite(total) && total>0 && Number.isFinite(count);
     return {active,complete,elapsed,percentage:complete?100:known?Math.min(100,Math.max(0,Math.floor(count/total*100))):null,completed:known?Math.min(total,Math.max(0,count)):null,total:known?total:null,unit:progress?.unit || 'requests'};
   }
-  const api={estimate,duration,step};root.NxfloTiming=api;
+  function overall(job) {
+    if(!job?.id)return 0;
+    if(['ready','needs_review'].includes(job.status))return 100;
+    const completed=new Set((job.events || []).filter(e=>e.status==='complete' && order.includes(e.step)).map(e=>e.step));
+    const index=Math.max(0,order.indexOf(job.step));
+    const progress=job.step_progress?.step===job.step?job.step_progress:null;
+    const counts=job.batch_wait?.request_counts;
+    const total=Number(counts?.total ?? progress?.total),count=Number(counts?.completed ?? progress?.completed);
+    const fraction=!completed.has(job.step) && total>0 && Number.isFinite(total) && Number.isFinite(count)?Math.max(0,Math.min(1,count/total)):0;
+    return Math.min(99,Math.floor((Math.max(index,completed.size)+fraction)/order.length*100));
+  }
+  const api={estimate,duration,step,overall};root.NxfloTiming=api;
   if(typeof module!=='undefined')module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);

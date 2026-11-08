@@ -33,3 +33,15 @@ assert.ok(intent.rows.some(row=>row.stage==='Extract author intent'));
 assert.ok(intent.rows.some(row=>row.stage==='Publication quality gate'));
 assert.ok(intent.rows.some(row=>row.stage==='Plan hypothetical scenario inputs'));
 assert.ok(intent.rows.some(row=>row.stage==='Fidelity repair allowance'));
+
+const hostedPrices={models:{'anthropic/claude-haiku-5.5':{name:'Claude Haiku 5.5',input:.1,output:.5,tiers:[{min_prompt_tokens:100000,prompt:'.0000005',completion:'.0000025'}]},'anthropic/claude-haiku-4.5':{input:1,output:5}}};
+const hosted={...config,provider:'databricks',databricks_model:'system.ai.claude-haiku-5-5',web_search:true,summary_service:'flex',draft_service:'flex',polish_service:'flex'};
+const hostedResult=estimate(hosted,hostedPrices);
+const directResult=estimate({...config,provider:'openrouter',summary_model:'anthropic/claude-haiku-5.5',draft_model:'anthropic/claude-haiku-5.5',polish_model:'anthropic/claude-haiku-5.5'},hostedPrices);
+assert.ok(hostedResult.total>0);assert.equal(hostedResult.total,directResult.total);
+assert.equal(hosted.databricks_model,'system.ai.claude-haiku-5-5');assert.equal(hosted.summary_service,'flex');
+assert.ok(!hostedResult.rows.some(row=>row.stage.startsWith('Web research')));
+assert.equal(estimate({...hosted,databricks_model:'unknown-private-endpoint'},hostedPrices),null);
+assert.ok(estimate({...hosted,databricks_model:'databricks-claude-haiku-4-5'},hostedPrices).total>hostedResult.total);
+assert.equal(estimate({...hosted,databricks_model:'claude-haiku-4-5-20251001'},hostedPrices).total,estimate({...hosted,databricks_model:'databricks-claude-haiku-4-5'},hostedPrices).total);
+console.log('Hosted model estimates match same-model reference pricing without provider discounts or fabricated unknown rates.');

@@ -27,3 +27,13 @@ const finishedJob={...job,status:'ready',events:[{step:'review',status:'started'
 assert.equal(step(finishedJob,'review',start+500).elapsed,50);assert.equal(step(finishedJob,'review',start+500).percentage,100);
 assert.equal(step({...progressJob,step_progress:{step:'summarize',completed:99,total:12}},'summarize',start+180).percentage,100);
 console.log('Step meters use persisted request counts and exact elapsed event times, including repeated review passes.');
+
+const {overall}=require('../tools/generator-timing.js');
+assert.equal(overall({status:'idle'}),0);
+assert.equal(overall({...job,status:'ready'}),100);
+assert.equal(overall({...job,status:'needs_review'}),100);
+assert.equal(overall({...job,step:'draft',events:[],step_progress:{step:'draft',completed:1,total:2}}),29);
+assert.equal(overall({...job,status:'failed',step:'draft',events:[],step_progress:{step:'draft',completed:1,total:2}}),29);
+assert.equal(overall({...job,step:'review',events:['collect','summarize','outline','draft','review','rewrite'].map(step=>({step,status:'complete'}))}),50);
+assert.ok(overall({...job,step:'deliver'})<100);
+console.log('Overall percentage uses completed workflow stages and known request counts; 100% is reserved for completion.');

@@ -100,7 +100,8 @@ def check(widths=(1440,375,320,430)):
                     assert page.locator('#generator-common-model').is_hidden()
                     assert page.locator('#generator-advanced-models').is_hidden()
                     assert page.locator('[name=web_search]').count()==0
-                    assert page.locator('#generator-cost-total').inner_text()=='Workspace billing'
+                    assert '$' in page.locator('#generator-cost-total').inner_text()
+                    assert 'reference rates' in page.locator('#generator-pricing-status').inner_text()
                     assert page.locator('#generator-price-matrix tr').count()==1
                     assert not page.evaluate('document.documentElement.scrollWidth>innerWidth'),'Databricks provider overflow'
                     if width in (1440,375):page.locator('#generator-form').screenshot(path='/tmp/nxflo-databricks-form-'+str(width)+'.png')

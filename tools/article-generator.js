@@ -125,21 +125,15 @@
   function renderCosts() {
     if(!config)return;
     const current=values();
-    if(current.provider==='databricks'){
-      renderMatrix(current);
-      $('generator-pricing-status').textContent='Databricks workspace billing. Endpoint token rates are not configured; OpenRouter prices do not apply.';
-      $('generator-model-rates').replaceChildren(...['Summarize evidence','Outline, draft & review','Final polish'].map(label=>{const row=document.createElement('tr'),name=document.createElement('th');name.scope='row';name.textContent=label+' · '+current.databricks_model;row.append(name);for(let i=0;i<2;i++){const cell=document.createElement('td');cell.textContent='Workspace rate';row.append(cell);}return row;}));
-      $('generator-cost-total').textContent='Workspace billing';$('generator-cost-assumptions').textContent='USD estimate unavailable until Databricks endpoint input and output rates are supplied. Unknown rates are not treated as free. Paid OpenRouter web discovery is disabled for Databricks.';
-      $('generator-pass-costs').replaceChildren();$('generator-cost-breakdown').replaceChildren();return;
-    }
     if(!pricing)return;
-    $('generator-pricing-status').textContent=(pricing.warning?pricing.warning+' ':'')+'OpenRouter prices · USD · checked '+new Date(pricing.checked_at).toLocaleString()+'.';
+    const plan=window.NxfloCosts.planning(current,pricing),costConfig=plan?.config || (current.provider==='databricks'?{...current,summary_model:current.databricks_model,draft_model:current.databricks_model,polish_model:current.databricks_model,summary_service:'default',draft_service:'default',polish_service:'default'}:current),proxy=current.provider==='databricks';
+    $('generator-pricing-status').textContent=(pricing.warning?pricing.warning+' ':'')+(proxy?'Databricks planning estimate using same-model reference rates':'OpenRouter prices')+' · USD · checked '+new Date(pricing.checked_at).toLocaleString()+'.';
     renderMatrix(current);
     const roles=[['Author intent & evidence','summary_model'],['Plan, draft & review','draft_model'],['Polish & publication gate','polish_model']];
     $('generator-model-rates').replaceChildren(...roles.map(([label,key])=>{
       const row=document.createElement('tr'),name=document.createElement('th');name.scope='row';
       const stage=document.createElement('span'),model=document.createElement('small');stage.textContent=label;
-      const price=Object.hasOwn(pricing.models,current[key])?pricing.models[current[key]]:null;const service=current[key.replace('_model','_service')];model.textContent=(price?.name || current[key] || 'Select a model')+(service==='flex'?' · Flex · 50% off':'');name.append(stage,model);row.append(name);
+      const price=Object.hasOwn(pricing.models,costConfig[key])?pricing.models[costConfig[key]]:null;const service=costConfig[key.replace('_model','_service')];model.textContent=(price?.name || costConfig[key] || 'Select a model')+(service==='flex'?' · Flex · 50% off':'')+(proxy?' · reference estimate':'');name.append(stage,model);row.append(name);
       for(const field of ['input','output']) {const cell=document.createElement('td');cell.textContent=price?usd(price[field]*(service==='flex'?.5:1)):'Unavailable';row.append(cell);}
       return row;
     }));
@@ -147,8 +141,9 @@
     const result=window.NxfloCosts.estimate(current,pricing,undefined,observed);
     $('generator-cost-total').textContent=result?'≈ '+usd(result.total):'Unavailable';
     $('generator-pass-costs').replaceChildren();$('generator-cost-breakdown').replaceChildren();
-    if(!result){$('generator-cost-assumptions').textContent='Choose models with published token prices and a valid page assumption to calculate an estimate. Unknown model prices are never treated as zero.';return;}
-    $('generator-cost-assumptions').textContent=`${result.pages} planning pages · approximately ${result.manuscriptTokens.toLocaleString()} draft tokens · ${result.sourceTokens.toLocaleString()} source tokens · ${result.passes} full review/rewrite ${result.passes===1?'cycle':'cycles'}. ${result.observed?"Uses collected source text and actual summary chunk counts.":"Source estimates include pasted/uploaded text, 6,000 tokens per video or reference link, and search results."} Research fees and Luna Flex notes are included when selected. The US$0.30 limit applies to web research only.${current.revision_parent?' Revision estimates also include the previous manuscript at the planned length and your feedback.':''}`;
+    if(!result){$('generator-cost-assumptions').textContent=(proxy?'No published reference rate matches this Databricks model. ':'')+'Choose models with published token prices and a valid page assumption to calculate an estimate. Unknown model prices are never treated as zero.';return;}
+    $('generator-cost-assumptions').textContent=`${result.pages} planning pages · approximately ${result.manuscriptTokens.toLocaleString()} draft tokens · ${result.sourceTokens.toLocaleString()} source tokens · ${result.passes} full review/rewrite ${result.passes===1?'cycle':'cycles'}. ${result.observed?"Uses collected source text and actual summary chunk counts.":"Source estimates include pasted/uploaded text, 6,000 tokens per video or reference link, and search results."} ${proxy?'':'Research fees and Luna Flex notes are included when selected. The US$0.30 limit applies to web research only.'}${current.revision_parent?' Revision estimates also include the previous manuscript at the planned length and your feedback.':''}`;
+    if(proxy)$('generator-cost-assumptions').textContent+=' Same-model reference rates are assumed comparable across hosts for this planning estimate. Actual Databricks billing may differ; no Flex discount or paid web discovery is assumed.';
     const baseline=window.NxfloCosts.estimate(current,pricing,3,observed);
     $('generator-pass-costs').replaceChildren(...[1,2,3,4].map(passes=>{
       const comparison=window.NxfloCosts.estimate(current,pricing,passes,observed),card=document.createElement('div');
@@ -166,8 +161,10 @@
   }
   function renderMatrix(current) {
     if(current.provider==='databricks'){
-      matrixSignature='';const row=document.createElement('tr');row.className='is-selected';const name=document.createElement('th');name.scope='row';name.style.overflowWrap='anywhere';name.textContent=current.databricks_model || 'Configure a Databricks model';row.append(name);
-      for(let i=0;i<2;i++){const cell=document.createElement('td');cell.textContent='Workspace';row.append(cell);}$('generator-price-matrix').replaceChildren(row);return;
+      matrixSignature='';const row=document.createElement('tr');row.className='is-selected';const name=document.createElement('th');name.scope='row';name.style.overflowWrap='anywhere';
+      const plan=window.NxfloCosts.planning(current,pricing),price=plan?pricing.models[plan.reference]:null;
+      name.textContent=(current.databricks_model || 'Configure a Databricks model')+(price?' · same-model reference':'');row.append(name);
+      for(const field of ['input','output']){const cell=document.createElement('td');cell.textContent=price?usd(price[field]):'Unavailable';row.append(cell);}$('generator-price-matrix').replaceChildren(row);return;
     }
     const matrix=$('generator-price-matrix');const focused=matrix.contains(document.activeElement)?document.activeElement.closest('tr')?.dataset.model:null;
     const cost=(choice,field)=>Object.hasOwn(pricing.models,choice.id)?pricing.models[choice.id][field]*(choice.service==='flex'?.5:1):Infinity;
@@ -376,6 +373,8 @@
   }
   setInterval(renderTiming,1000);
   function renderStepTimes(job,now){
+    const percent=window.NxfloTiming.overall(job);$('generator-progress').value=percent/100*steps.length;$('generator-progress').setAttribute('aria-valuetext',percent+'% of workflow complete');$('generator-progress-percent').textContent=percent+'%';$('generator-progress-panel').style.setProperty('--generation-progress',percent+'%');
+    $('generator-progress-panel').classList.toggle('is-active',['queued','running'].includes(job.status) && job.worker_online!==false);
     for(const li of $('generator-steps').children){
       const detail=window.NxfloTiming.step(job,li.dataset.step,now),time=li.querySelector('.generator-step-elapsed');
       if(time){time.hidden=!detail.active && !detail.complete && detail.elapsed===0;time.textContent='Elapsed '+window.NxfloTiming.duration(detail.elapsed);}
@@ -414,7 +413,7 @@
     $('generator-steps').replaceChildren(...steps.map(([key,label],i)=>{
       if(job.pipeline_version===2 || job.status==='idle')label=intentLabels[key] || label;
       const currentState=job.worker_online===false?'stalled':job.wait_state?.label || job.batch_wait || job.recovery?.retry_at?'waiting':job.status==='queued'?'queued':'running';
-      const li=document.createElement('li');li.dataset.step=key;li.dataset.state=job.status==='awaiting_html_review' && key==='html_review'?'review':running && job.step===key?currentState:job.status==='failed' && job.step===key?'failed':complete.has(key)?'complete':'pending';
+      const li=document.createElement('li');li.tabIndex=-1;li.dataset.step=key;li.dataset.state=job.status==='awaiting_html_review' && key==='html_review'?'review':running && job.step===key?currentState:job.status==='failed' && job.step===key?'failed':complete.has(key)?'complete':'pending';
       const dot=document.createElement('span');dot.className='generator-step-dot';dot.setAttribute('aria-hidden','true');dot.textContent=complete.has(key)?'✓':String(i+1).padStart(2,'0');
       if(running && job.step===key){dot.classList.add('is-meter');dot.removeAttribute('aria-hidden');dot.setAttribute('role','progressbar');dot.setAttribute('aria-label',label+' progress');dot.setAttribute('aria-valuemin','0');dot.setAttribute('aria-valuemax','100');}
       const copy=document.createElement('div');copy.className='generator-step-copy';const name=document.createElement('strong'),state=document.createElement('small');name.textContent=label;
@@ -437,7 +436,7 @@
       const checked=batch.checked_at?' Last checked '+Math.max(0,Math.floor(now-batch.checked_at))+'s ago.':'';
       $('generator-wait-status').textContent='OpenRouter Batch · '+batch.stage+' · '+(batch.status || 'submitted')+(counts.total?' · '+(counts.completed || 0)+' / '+counts.total+' requests complete'+(counts.failed?' · '+counts.failed+' failed':''):'')+elapsed+'.'+deadline+checked+' Progress is checked automatically every minute. Each Batch stage can take up to 24 hours; you can close this page.';
     }
-    $('generator-progress').hidden=job.status==='idle';$('generator-progress').max=steps.length;$('generator-progress').value=done?steps.length:Math.min(steps.length-1,complete.size);
+    $('generator-progress-panel').hidden=job.status==='idle';$('generator-progress').hidden=job.status==='idle';$('generator-progress').max=steps.length;
     const reviewing=job.status==='awaiting_html_review';
     reviewActions.hidden=!reviewing;reviewJump.hidden=!reviewing;
     $('generator-html-status').hidden=!reviewing;
@@ -561,7 +560,10 @@
     try{
       await save();await fillBlankMetadata();
       const result=await request('/jobs',json('POST',{config:values(),parent_id:parentId}));
-      form.elements.version.value=result.version;dirty=true;save().catch(showError);active=result.id;history.replaceState(null,'','admin.html?job='+result.id);await watch(result.id);await load(true);message('Generation queued. You can leave this page and return to follow progress.');
+      form.elements.version.value=result.version;dirty=true;save().catch(showError);active=result.id;history.replaceState(null,'','admin.html?job='+result.id);await watch(result.id);await load(true);
+      const first=$('generator-steps').querySelector('[data-step=collect]');
+      $('generator-workflow').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});first?.focus({preventScroll:true});
+      message('Generation queued. You can leave this page and return to follow progress.');
     }catch(error){showError(error);}finally{busy=false;ready();}
   });
   $('generator-logo').addEventListener('change',event=>upload(async()=>{const file=event.target.files[0];if(file)config.logo=await image(file);},event.target));

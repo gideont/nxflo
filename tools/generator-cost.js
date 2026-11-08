@@ -12,7 +12,16 @@
     if(service==='flex'){input/=2;output/=2;}
     return {input,output};
   }
+  function planning(config,prices) {
+    if(config.provider!=='databricks')return {config,assumed:false};
+    const normalize=value=>String(value || '').toLowerCase().replace(/^(?:system\.ai\.|databricks[-/]|anthropic[/:]\s*)/,'').replace(/[-_]\d{8}$/,'').replace(/[^a-z0-9]/g,'');
+    const wanted=normalize(config.databricks_model);
+    const id=Object.keys(prices?.models || {}).find(id=>!id.includes(':') && !id.startsWith('~') && normalize(id)===wanted);
+    if(!wanted || !id)return null;
+    return {assumed:true,reference:id,config:{...config,summary_model:id,draft_model:id,polish_model:id,summary_service:'default',draft_service:'default',polish_service:'default',web_search:false}};
+  }
   function estimate(config, prices, passes=Number(config.review_passes), observed=null) {
+    const plan=planning(config,prices);if(!plan)return null;config=plan.config;
     const pages=Number(config.length_mode==='target'?config.pages:(config.cost_pages ?? 12));
     if(!Number.isInteger(pages) || pages<1 || pages>60 || !Number.isInteger(passes) || passes<1 || passes>4)return null;
     const ids=[config.summary_model,config.draft_model,config.polish_model];
@@ -57,6 +66,6 @@
     }
     return {observed:!!observed,total:rows.reduce((sum,row)=>sum+row.cost,0),rows,pages,sourceTokens:source,manuscriptTokens:manuscript,chapters,passes};
   }
-  const api={estimate,rate};root.NxfloCosts=api;
+  const api={estimate,rate,planning};root.NxfloCosts=api;
   if(typeof module!=='undefined' && module.exports)module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
