@@ -146,6 +146,7 @@ def review_blocks(state):
     blocks={}
     for i,ch in enumerate(state['document']['chapters']):
         for j,p in enumerate(ch['paragraphs']):blocks[f'P{i}.{j}']={'chapter':i,'text':p}
+        if ch.get('takeaway'):blocks[f'K{i}']={'chapter':i,'text':ch['takeaway']}
         for j,table in enumerate(ch.get('tables',[])):blocks[f'T{i}.{j}']={'chapter':i,'text':json.dumps(table,ensure_ascii=False)}
     for index,chart in enumerate(state.get('charts',[])):
         blocks[('CALCULATED-' if chart.get('classification')=='hypothetical' else 'EMPIRICAL-')+str(index)]={'chapter':chart['chapter'],'text':json.dumps({k:v for k,v in chart.items() if k!='svg'},ensure_ascii=False)}

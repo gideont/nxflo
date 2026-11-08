@@ -45,7 +45,11 @@ def provenance_issues(document,sources,config,financials=None):
             if not isinstance(claim.get('text'),str) or claim['text'] not in text:errors.append('A claim register entry is absent from the chapter.');continue
             if claim['classification']=='empirical':
                 source=available.get(claim.get('source_id'));quote=claim.get('quote','')
-                if not source or not quote or ' '.join(quote.split()) not in ' '.join(source['text'].split()):errors.append('An empirical claim lacks exact source evidence.')
+                if not source or not quote:
+                    if claim.get('source_id') and not source:errors.append('Unknown source citation ['+claim['source_id']+'].')
+                    # Missing evidence is a verification finding. An invented
+                    # quotation or citation remains a critical integrity defect.
+                elif ' '.join(quote.split()) not in ' '.join(source['text'].split()):errors.append('An empirical claim contains a fabricated source quotation.')
                 elif any(number.replace(',','') not in quote.replace(',','') for number in re.findall(r'-?\d[\d,]*(?:\.\d+)?',claim['text'])):errors.append('An empirical claim contains an unsupported number.')
         for table in ch.get('tables',[]):errors.extend(table_issues(table,sources))
         for chart in ch.get('charts',[]):
@@ -113,7 +117,8 @@ def validate_publication_review(review,document,contract):
 
 
 def publication_fingerprint(state):
-    payload={'document':state['document'],'contract':state['author_contract'],'financials':state.get('financials')}
+    from .generation_verification import POLICY_VERSION
+    payload={'document':state['document'],'contract':state['author_contract'],'financials':state.get('financials'),'sources':state.get('sources',[]),'criteria':criteria(state['author_contract']),'verification_policy':POLICY_VERSION,'charts':state.get('charts',[])}
     if 'publication_assets' in state:
         payload.update(publication_assets=state['publication_assets'],publication_calculations=state.get('publication_calculations',[]))
     return digest(payload)
@@ -121,5 +126,12 @@ def publication_fingerprint(state):
 
 def assert_publication(state,html=None):
     gate=state.get('publication_quality',{})
-    if not gate.get('passed') or gate.get('fingerprint')!=publication_fingerprint(state):raise GenerationError('Publication-quality approval is missing or the manuscript changed after approval.')
+    fingerprint=publication_fingerprint(state)
+    if 'outcome' not in gate and gate.get('passed'):
+        # Existing approved artifacts keep their historical binding; every new
+        # decision binds evidence and validation policy as well.
+        legacy={'document':state['document'],'contract':state['author_contract'],'financials':state.get('financials')}
+        if 'publication_assets' in state:legacy.update(publication_assets=state['publication_assets'],publication_calculations=state.get('publication_calculations',[]))
+        fingerprint=digest(legacy)
+    if not (gate.get('passed') or gate.get('outcome')=='WARNING') or gate.get('outcome')=='BLOCKED' or gate.get('fingerprint')!=fingerprint:raise GenerationError('Publication-quality approval is missing or the manuscript changed after approval.')
     if html is not None and gate.get('html_hash')!=digest(html):raise GenerationError('The reviewed HTML changed after the publication-quality gate.')

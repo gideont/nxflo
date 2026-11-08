@@ -50,7 +50,9 @@ def assemble(config,state):
     company=config['company'] or ('Independent author' if state.get('pipeline_version')==2 and config.get('document_intent')!='research_report' else 'Independent research')
     date=config['release_date'] or datetime.now(ZoneInfo('America/Vancouver')).date().isoformat()
     logo='<img class="logo" src="'+config['logo']+'" alt="'+e(company)+' logo">' if config['logo'] else ''
-    notes='<section id="editorial-notes" class="appendix editorial-notes"><p class="eyebrow">Appendix · editorial transparency</p><h2>Source and editorial notes</h2><p class="small">Prepared with AI assistance. Review facts, quotations and recommendations before distribution. Source availability and editorial limitations are recorded below.</p>'+('<ul>'+''.join('<li>'+e(warning)+'</li>' for warning in state.get('warnings',[]))+'</ul>' if state.get('warnings') else '<p>No source-collection or automated editorial warnings were recorded.</p>')+'</section>'
+    editorial_warnings=[w for w in state.get('warnings',[]) if not w.startswith('Verification required:')]
+    notes='<section id="editorial-notes" class="appendix editorial-notes"><p class="eyebrow">Appendix · editorial transparency</p><h2>Source and editorial notes</h2><p class="small">Prepared with AI assistance. Review facts, quotations and recommendations before distribution. Source availability and editorial limitations are recorded below.</p>'+('<ul>'+''.join('<li>'+e(warning)+'</li>' for warning in editorial_warnings)+'</ul>' if editorial_warnings else '<p>No source-collection or automated editorial warnings were recorded.</p>')+'</section>'
+    if state.get('publication_quality',{}).get('outcome')=='WARNING':notes=notes.replace('No source-collection or automated editorial warnings were recorded.','Factual verification issues are listed in the separate verification register.')
     team=next((team for team in config.get('teams',[]) if team['id']==config.get('prepared_team')),None)
     email=team.get('email','') if team else ''
     website=config.get('website','')
@@ -59,11 +61,24 @@ def assemble(config,state):
     from .generation_cover import cover_markup
     cover=cover_markup(config,title,company,date,prepared)
     toc='<nav class="contents" aria-label="Table of contents"><p class="eyebrow">In this document</p><h2>Contents</h2><ol>'+''.join('<li><a href="#chapter-'+str(i)+'">'+e(ch['title'])+'</a></li>' for i,ch in enumerate(state['document']['chapters']))+'<li><a href="#sources">Sources</a></li><li><a href="#editorial-notes">Source and editorial notes</a></li><li><a href="#document-control">Document control and revision history</a></li></ol></nav>' if config['toc'] else ''
+    verification=state.get('publication_quality',{})
+    findings=verification.get('findings',[]) if verification.get('outcome')=='WARNING' else []
+    labels={}
+    for index,finding in enumerate(findings):
+        for block in finding.get('blocks',[]):labels.setdefault(block,[]).append(index+1)
+    def qualification(block):
+        refs=labels.get(block,[])
+        return ('<span class="verification-label">Unverified claim · confirmation required '+''.join('<a href="#verification-note-'+str(n)+'">['+str(n)+']</a>' for n in refs)+'</span>') if refs else ''
+    banner=''
+    if findings:
+        if toc:toc=toc.replace('<li><a href="#sources">','<li><a href="#verification-register">Verification issues</a></li><li><a href="#sources">')
+        cover+='<div class="draft-cover-label">UNVERIFIED DRAFT · Verification required</div>'
+        banner='<section class="verification-banner" aria-labelledby="verification-heading"><h2 id="verification-heading">Draft — factual verification incomplete</h2><p>This complete draft preserves the author’s argument. Marked statements have not been independently verified and must not be relied on as established facts. Regulatory statements describe the author’s position, not authoritative legal guidance; confirm current requirements with the responsible authority before acting.</p><p><a href="#verification-register">Read the outstanding verification issues</a></p></section>'
     body=''
     for i,ch in enumerate(state['document']['chapters']):
-        body+='<section class="report-chapter section-wrap" id="chapter-'+str(i)+'"><p class="eyebrow">Chapter '+str(i+1).zfill(2)+'</p><h2 class="section">'+e(ch['title'])+'</h2>'+''.join('<p>'+paragraph(p)+'</p>' for p in ch['paragraphs'])
-        if config['graphics'] and isinstance(ch.get('takeaway'),str):body+='<aside class="callout info"><strong class="ico">Key takeaway</strong><div class="body"><p>'+paragraph(ch['takeaway'])+'</p></div></aside>'
-        body+=''.join(render_table(table) for table in ch.get('tables',[]))
+        body+='<section class="report-chapter section-wrap" id="chapter-'+str(i)+'"><p class="eyebrow">Chapter '+str(i+1).zfill(2)+'</p><h2 class="section">'+e(ch['title'])+'</h2>'+''.join('<p id="claim-P'+str(i)+'.'+str(j)+'">'+qualification('P'+str(i)+'.'+str(j))+paragraph(p)+'</p>' for j,p in enumerate(ch['paragraphs']))
+        if config['graphics'] and isinstance(ch.get('takeaway'),str):body+='<aside class="callout info"><strong class="ico">Key takeaway</strong><div class="body"><p>'+qualification('K'+str(i))+paragraph(ch['takeaway'])+'</p></div></aside>'
+        body+=''.join(qualification('T'+str(i)+'.'+str(j))+render_table(table) for j,table in enumerate(ch.get('tables',[])))
         for formula in ch.get('formula_refs',[]):
             from .generation_finance import FORMULAS
             if formula in FORMULAS:body+='<p class="registered-formula"><code>'+e(FORMULAS[formula])+'</code></p>'
@@ -72,15 +87,17 @@ def assemble(config,state):
             from .generation_publication import render_asset,render_calculation
             body+=''.join(render_asset(asset) for asset in state['publication_assets'] if asset['chapter']==i)
             body+=''.join(render_calculation(calc) for calc in state.get('publication_calculations',[]) if calc['chapter']==i)
-        for chart in state.get('charts',[]):
+        for chart_index,chart in enumerate(state.get('charts',[])):
             if chart.get('classification')=='hypothetical':
                 duplicate=any(asset['chapter']==i and asset.get('recipe')==chart.get('recipe') and asset.get('group_id')==chart.get('group_id') for asset in state.get('publication_assets',[]) if asset['kind']=='chart')
                 if not duplicate and chart.get('in_chapter') and chart['chapter']==i:body+='<figure>'+chart['svg']+'<figcaption>'+e(chart['caption'])+'</figcaption></figure>'
                 continue
-            if chart['chapter']==i:body+='<figure>'+chart['svg']+'<figcaption>'+e(chart['caption'])+'</figcaption></figure>'
+            if chart['chapter']==i:body+=qualification('EMPIRICAL-'+str(chart_index))+'<figure>'+chart['svg']+'<figcaption>'+e(chart['caption'])+'</figcaption></figure>'
         if config['images'] and i<len(config['illustrations']):body+='<figure><img src="'+config['illustrations'][i]+'" alt="Supporting image '+str(i+1)+'"></figure>'
         body+='</section>'
     body+='<section id="sources" class="appendix"><p class="eyebrow">Reference register</p><h2>Sources</h2><ol class="sources-list">'+''.join('<li id="source-'+e(s['id'])+'"><strong>['+e(s['id'])+']</strong> '+e(s['label'])+(' · <a rel="noopener noreferrer" href="'+e(s['url'])+'">'+e(s['url'])+'</a>' if s.get('url','').startswith(('https://','http://')) else '')+(' · '+e(s['warning']) if s.get('warning') else '')+'</li>' for s in sources)+'</ol></section>'+notes
+    if findings:
+        body+='<section id="verification-register" class="appendix verification-register"><h2>Outstanding verification issues</h2><ol>'+''.join('<li id="verification-note-'+str(i+1)+'"><strong>'+e(f['reason'])+'</strong>'+('<p>Unverified statement: '+e(f['claim'])+'</p>' if f.get('claim') else '')+'</li>' for i,f in enumerate(findings))+'</ol></section>'
     history=state.get('revision_history') or [{'version':config.get('version') or '1.0','date':date,'prepared_by':team['name'] if team else 'Not specified','summary':'Initial issue.'}]
     document_control='<section id="document-control" class="document-control"><p class="eyebrow">Document governance</p><h2>Document control and revision history</h2><dl class="document-register"><dt>Document title</dt><dd>'+e(title)+'</dd><dt>Issuing organization</dt><dd>'+e(company)+'</dd><dt>Current version</dt><dd>'+e(config['version'] or '1.0')+'</dd><dt>Release date</dt><dd>'+e(date)+'</dd></dl><div class="revision-table-wrap"><table class="revision-table"><caption>Record of document revisions</caption><thead><tr><th scope="col">Version</th><th scope="col">Revision date</th><th scope="col">Prepared by</th><th scope="col">Change summary</th></tr></thead><tbody>'+''.join('<tr><td data-label="Version">'+e(item['version'])+'</td><td data-label="Revision date">'+e(item['date'])+'</td><td data-label="Prepared by">'+e(item['prepared_by'])+'</td><td data-label="Change summary">'+e(item['summary'])+'</td></tr>' for item in history)+'</tbody></table></div><p class="small">This record identifies the document issue and its revisions. A generated revision does not imply independent verification or formal approval.</p></section>'
     if team or website:
@@ -94,8 +111,9 @@ def assemble(config,state):
     if 'publication_assets' in state:
         from .generation_publication import ASSET_CSS
         css+=ASSET_CSS
-    running='<div class="running-header">'+e(company)+' · '+e(config['report_type'])+'</div><div class="running-footer">Version '+e(config['version'] or '1.0')+' · '+e(date)+'</div>'
-    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+e(title)+'</title><style>:root{--theme:'+config['color']+';--accent:'+config['accent']+'}'+css+'</style></head><body data-theme="report" data-document-engine="folio">'+running+'<main><header class="cover">'+cover+'</header>'+toc+body+'<footer>'+e(company)+' · v'+e(config['version'] or '1.0')+'</footer></main></body></html>'
+    if findings:css+='.verification-banner,.verification-register{border:1px solid #b57932;padding:5mm;background:#fff9ed;color:#50381b;overflow-wrap:anywhere}.verification-banner{break-inside:avoid;margin:6mm 0}.verification-banner h2{font-size:17pt;margin:0 0 3mm}.verification-label{display:block;color:#70430f;font-weight:700;font-size:9pt;margin-bottom:2mm;break-after:avoid}.verification-label a{margin-left:2mm}.draft-cover-label{position:absolute;top:10mm;right:10mm;max-width:65%;background:#fff5d8;color:#50381b;padding:3mm 4mm;font-size:10pt;font-weight:700}.verification-register li{margin:4mm 0;overflow-wrap:anywhere}@media screen and (max-width:600px){.draft-cover-label{font-size:9px;padding:6px;top:10px;right:10px}.verification-banner{padding:14px}}'
+    running='<div class="running-header">'+e(company)+' · '+e(config['report_type'])+(' · UNVERIFIED DRAFT' if findings else '')+'</div><div class="running-footer">Version '+e(config['version'] or '1.0')+' · '+e(date)+'</div>'
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+e(title)+'</title><style>:root{--theme:'+config['color']+';--accent:'+config['accent']+'}'+css+'</style></head><body data-theme="report" data-document-engine="folio">'+running+'<main><header class="cover">'+cover+'</header>'+toc+banner+body+'<footer>'+e(company)+' · v'+e(config['version'] or '1.0')+'</footer></main></body></html>'
 
 
 def export_pdf(html,path):

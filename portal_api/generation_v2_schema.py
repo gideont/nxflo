@@ -33,7 +33,7 @@ def schema(stage):
     if stage in ('financial-plan','financial-plan-repair'):return scenario_plan_schema()
     if stage=='outline':return object_schema({'title':STRING,'chapters':{'type':'array','minItems':1,'maxItems':24,'items':PLAN}})
     if stage=='publication-quality-assets-v2':
-        return object_schema({'checks':{'type':'array','items':object_schema({'criterion':STRING,'passed':{'type':'boolean'},'evidence_blocks':{'type':'array','items':STRING},'reason':STRING})}})
+        return object_schema({'checks':{'type':'array','items':object_schema({'criterion':STRING,'passed':{'type':'boolean'},'evidence_blocks':{'type':'array','items':STRING},'reason':STRING,'issue_type':{'type':'string','enum':['none','unverified_claim','integrity']}})}})
     if stage.startswith('publication-quality'):
         return object_schema({'checks':{'type':'array','items':object_schema({'criterion':STRING,'passed':{'type':'boolean'},'evidence':STRING,'reason':STRING})}})
     if stage.startswith('intent-repair-'):return REPAIR_CHAPTER

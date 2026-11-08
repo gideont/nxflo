@@ -114,7 +114,7 @@ On the right: an informed investment decision.
         checks[0].update(passed=False,reason='The author’s purpose was changed.');self.assertTrue(validate_bound_review({'checks':checks},state,blocks)[0])
     def test_artifact_changes_are_bound_to_the_publication_fingerprint(self):
         state=self.state();legacy=publication_fingerprint(state)
-        self.assertEqual(legacy,digest({'document':state['document'],'contract':state['author_contract'],'financials':state['financials']}))
+        self.assertNotEqual(legacy,digest({'document':state['document'],'contract':state['author_contract'],'financials':state['financials']}),'New approvals must also bind evidence and validation criteria')
         state['publication_assets'],state['publication_calculations']=publication_assets(state);fingerprint=publication_fingerprint(state)
         state['publication_assets'][0]['nodes'][0]['title']='Changed asset';self.assertNotEqual(fingerprint,publication_fingerprint(state))
 

@@ -458,6 +458,16 @@
     $('generator-html-status').hidden=!reviewing;
     if(reviewing){reviewJump.href=endpoint+'/jobs/'+job.id+'/download/html?view=1';}
     else $('generator-html-status').textContent='';
+    const publication=job.publication_quality,publicationPanel=$('generator-publication');publicationPanel.hidden=!publication?.outcome;
+    if(publication?.outcome){
+      publicationPanel.dataset.outcome=publication.outcome;
+      $('generator-publication-title').textContent='Publication status: '+publication.outcome;
+      $('generator-publication-summary').textContent=publication.outcome==='WARNING'?'Complete draft · factual verification incomplete. HTML and PDF carry the same qualifications.':publication.outcome==='BLOCKED'?'An integrity failure prevents publication. Unchanged reviews will not be repeated.':'Publication checks passed.';
+      const issues=publication.findings || [];$('generator-publication-details-title').textContent='Outstanding issues ('+issues.length+')';
+      $('generator-publication-issues').replaceChildren(...issues.map(issue=>{const li=document.createElement('li');li.textContent=issue.reason+(issue.claim?' Statement: '+issue.claim:'');return li;}));
+      publicationPanel.querySelector('details').hidden=!issues.length;
+    }
+    $('generator-result').querySelector('p').textContent=publication?.outcome==='WARNING'?'Your complete draft is ready with verification warnings. Review the marked statements in the HTML or PDF before distribution.':'Your document is ready. Review the PDF, then choose Revise this document to submit feedback and generate the next version.';
     $('generator-result').hidden=!done;$('generator-cancel').hidden=!running;
     const recovery=job.recovery || {},retryWait=recovery.retry_at?Math.max(0,Math.ceil(recovery.retry_at-(job.server_time || Date.now()/1000))):0;
     resumeButton.hidden=!recovery.can_resume || (running && (!job.batch_wait || recovery.retry_at));
@@ -478,7 +488,8 @@
     $('generator-web-spend').textContent=budget?'Web research: '+usd(budget.reported)+' reported · '+usd(budget.limit)+' limit for new research'+(budget.historical?' · Earlier native-search charges predate this limit.':budget.reserved?' · '+usd(budget.reserved)+' reserved as a conservative maximum; this is not a charge.':''):'';
     $('generator-billing-details').hidden=!job.billing?.length;
     $('generator-billing-rows').replaceChildren(...(job.billing || []).map(row=>{const p=document.createElement('p');p.textContent=job.config?.provider==='databricks'?row.stage+': Databricks workspace billing'+(row.input_tokens!=null?' · '+row.input_tokens+' input tokens · '+row.output_tokens+' output tokens':''):row.stage+': OpenRouter '+(row.credit_cost==null?'not reported':usd(row.credit_cost))+' · BYOK provider '+(row.is_byok===false?'not applicable':row.provider_cost==null?'not reported':usd(row.provider_cost))+' · Total '+(row.total==null?'not yet verified':usd(row.total))+(row.generation_id?' · Billing reference '+row.generation_id:'');p.style.overflowWrap='anywhere';return p;}));
-    $('generator-warnings').replaceChildren(...(job.warnings || []).map(text=>{const li=document.createElement('li');li.textContent=text;return li;}));
+    $('generator-warnings').replaceChildren(...(job.warnings || []).filter(text=>!publication?.outcome || !text.startsWith('Verification required:')).map(text=>{const li=document.createElement('li');li.textContent=text;return li;}));
+    $('generator-download-pdf').textContent=publication?.outcome==='WARNING'?'Download draft PDF':'Download PDF';$('generator-download-html').textContent=publication?.outcome==='WARNING'?'Download draft HTML':'Download HTML';
     if(done){$('generator-download-pdf').href=endpoint+'/jobs/'+job.id+'/download/pdf';$('generator-download-html').href=endpoint+'/jobs/'+job.id+'/download/html';}
   }
   function watch(id) {
@@ -601,7 +612,7 @@
   $('generator-library-unfinished').addEventListener('change',()=>renderLibrary());
   window.addEventListener('nxflo-admin-tab',event=>{if(event.detail==='generator-tab')load();});
   window.addEventListener('nxflo-owner-session',event=>{csrf=event.detail.csrf;});
-  window.addEventListener('nxflo-session-ended',()=>{csrf='';loaded=false;config=null;active=null;watched=null;timedJob=null;renderTiming();$('generator-editor').hidden=false;$('generator-logo-preview').querySelector('img').removeAttribute('src');$('generator-logo-preview').hidden=true;$('generator-logo-empty').hidden=false;$('generator-logo-help').hidden=false;logoDrop.classList.remove('has-logo');logoDrop.setAttribute('aria-label','Upload company logo');clearTimeout(pollTimer);clearTimeout(saveTimer);form.reset();libraryDocuments=[];expandedDocumentId=null;$('generator-library-search').value='';$('generator-library-unfinished').checked=false;$('generator-library-count').textContent='';$('generator-jobs').replaceChildren();$('generator-review-actions').hidden=true;$('generator-review-jump').hidden=true;$('generator-html-status').hidden=true;$('generator-failure').hidden=true;failureKey='';});
+  window.addEventListener('nxflo-session-ended',()=>{csrf='';loaded=false;config=null;active=null;watched=null;timedJob=null;renderTiming();$('generator-editor').hidden=false;$('generator-logo-preview').querySelector('img').removeAttribute('src');$('generator-logo-preview').hidden=true;$('generator-logo-empty').hidden=false;$('generator-logo-help').hidden=false;logoDrop.classList.remove('has-logo');logoDrop.setAttribute('aria-label','Upload company logo');clearTimeout(pollTimer);clearTimeout(saveTimer);form.reset();libraryDocuments=[];expandedDocumentId=null;$('generator-library-search').value='';$('generator-library-unfinished').checked=false;$('generator-library-count').textContent='';$('generator-jobs').replaceChildren();$('generator-review-actions').hidden=true;$('generator-review-jump').hidden=true;$('generator-html-status').hidden=true;$('generator-failure').hidden=true;$('generator-publication').hidden=true;failureKey='';});
   window.addEventListener('beforeunload',event=>{if(dirty || saving || uploading){event.preventDefault();event.returnValue='';}});
   workflow();
 

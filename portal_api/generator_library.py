@@ -78,16 +78,16 @@ def library(connection):
         with db.transaction(connection):backfill(connection)
     docs={r['id']:{'id':r['id'],'title':r['title'],'versions':[],'_versions':[]} for r in connection.execute('SELECT * FROM generator_documents')}
     jobs={}
-    for row in connection.execute("""SELECT id,status,step,created_at,updated_at,recovery,next_run_at,version_id,
+    for row in connection.execute("""SELECT id,status,step,created_at,updated_at,recovery,next_run_at,version_id,json_extract(state,'$.publication_quality.outcome') AS publication_outcome,
         json_object('title',json_extract(config,'$.title'),'provider',json_extract(config,'$.provider'),'databricks_model',json_extract(config,'$.databricks_model'),
         'summary_model',json_extract(config,'$.summary_model'),'draft_model',json_extract(config,'$.draft_model'),
         'polish_model',json_extract(config,'$.polish_model')) AS config FROM generator_jobs ORDER BY updated_at,created_at,rowid"""):
         jobs.setdefault(row['version_id'],[]).append(row)
     def snapshot(row):
         info=recovery_info(connection,row)
-        return {'job_id':row['id'],'status':row['status'],'status_label':LABELS.get(row['status'],'In progress'),'updated_at':row['updated_at'],
+        return {'job_id':row['id'],'status':row['status'],'status_label':('Draft · verification required' if row['publication_outcome']=='WARNING' and row['status']=='needs_review' else LABELS.get(row['status'],'In progress')),'updated_at':row['updated_at'],
             'can_resume':row['status'] in ('failed','cancelled') and bool(info['can_resume']),'recovery_blocked':bool(info['blocked_reason']),
-            'notice':('Recovery is paused to avoid duplicate charges. Provider activity must be reconciled before retrying.' if info['blocked_reason'] else 'Generation needs attention. Saved progress is preserved; resume generation to recover.' if row['status']=='failed' else 'Generation is paused. Saved progress is preserved.' if row['status']=='cancelled' else '')}
+            'notice':(info['blocked_reason'] if info['blocked_reason'] else 'Generation needs attention. Saved progress is preserved; resume generation to recover.' if row['status']=='failed' else 'Generation is paused. Saved progress is preserved.' if row['status']=='cancelled' else '')}
     for version in connection.execute('SELECT id,document_id,version,created_at,saved_at FROM generator_versions ORDER BY created_at,rowid'):
         attempts=jobs.get(version['id'],[])
         if not attempts:continue

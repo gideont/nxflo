@@ -255,10 +255,18 @@ class IntentPipeline:
     def assemble(self,s):
         errors=local_publication_issues(s['document'],s['author_contract'],self.config,s['sources'],s['outline']['chapters'],s.get('financials'))
         if s['author_contract']['financial_examples'] and not s.get('financials'):errors.append('Required worked financial projections are missing.')
+        if s.get('financials'):
+            expected=build_financials({'groups':[{k:v for k,v in group.items() if k!='results'} for group in s['financials']['groups']]})
+            if expected!=s['financials']:errors.append('Stored financial outputs contradict their registered formulas or assumptions.')
         if errors:
-            self.e.checkpoint({**s,'quality_errors':errors})
+            gate={'outcome':'BLOCKED','passed':False,'fingerprint':publication_fingerprint(s),'findings':[{'kind':'integrity','reason':error,'blocks':[]} for error in errors]}
+            self.e.checkpoint({**s,'quality_errors':errors,'publication_quality':gate})
             raise GenerationError('Publication-quality gate rejected the manuscript: '+' '.join(errors[:8]))
-        from .generation_publication import publication_assets,review_blocks,validate_bound_review
+        from .generation_verification import research,POLICY_VERSION
+        previous_sources=s['sources']
+        s=research(self,s)
+        legacy_sources_unchanged=s['sources']==previous_sources
+        from .generation_publication import publication_assets,review_blocks
         assets,calculations=publication_assets(s)
         s={**s,'publication_assets':assets,'publication_calculations':calculations}
         self.e.checkpoint(s)
@@ -268,7 +276,7 @@ class IntentPipeline:
         for offset in range(0,len(all_criteria),24):
             requested=all_criteria[offset:offset+24]
             prompt=('Independently assess this manuscript for publication. '+instructions(self.config)+context(s)+evidence_context(s['sources'])+
-                '\nEvaluate each required criterion exactly once: '+json.dumps(requested)+
+                '\nValidation criteria version: '+str(POLICY_VERSION)+'\nEvaluate each required criterion exactly once: '+json.dumps(requested)+
                 '\nFor each author:A reference, check that its actual meaning, examples, distinctions and constraints survive, not just its keywords. '
                 'For each section key check substantive content, not a heading alone. Accuracy: all empirical claims and numeric tables/charts need matching source evidence; inspect for unregistered claims as well. '
                 'Formulas: ensure the prose is consistent with the calculator, no double-counted costs, cash financing is not revenue, opportunity costs are separate, and projections are explicitly hypothetical rather than guaranteed or observed. '
@@ -276,31 +284,62 @@ class IntentPipeline:
                 'Publication: reject unfinished placeholders, leaked editorial instructions, missing worked examples or substantive drift. Do not require repetitive disclaimers. '
                 'The publication includes the rendered figures and registered calculations in the supplied publication blocks, not just the prose. '
                 'Inspect those assets before claiming a figure or worked calculation is absent. Distinguish return on initial investment from return on total cash expenditure and modeled economic benefit; these are explicitly different denominators, not contradictory formulas. '
-                'Return JSON {"checks":[{"criterion":"exact criterion ID","passed":true,"evidence_blocks":["valid publication block ID"],"reason":"assessment"}]}. '
-                'Cite existing publication block IDs, never invent quotations or certify missing work. Reject actual unsupported claims, contradictions or absent required content. '
+                'Return JSON {"checks":[{"criterion":"exact criterion ID","passed":true,"evidence_blocks":["valid publication block ID"],"reason":"assessment","issue_type":"none or unverified_claim or integrity"}]}. '
+                'Cite existing publication block IDs for BOTH passed and failed checks, never invent quotations or certify missing work. '
+                'Separate accuracy verification from integrity: issue_type is none for passes, unverified_claim only for incomplete factual or regulatory evidence, and integrity for fabricated citations, contradictions, broken calculations, missing content or unusable prose. '
+                'An author-provided regulatory assertion without external corroboration must fail accuracy with unverified_claim, never be certified by citing the brief. Preserve the argument; require precise reader-facing qualifications rather than deletion. '
                 'Verify arithmetic derived from registered hypothetical inputs directly; such calculations do not require external empirical citations. Any rejected criterion must identify a specific actual contradiction, incorrect calculation or unsupported claim. '
                 '\nManuscript: '+json.dumps(s['document'])+'\nCalculated hypothetical models: '+json.dumps(s.get('financials'))+'\nPublication blocks: '+json.dumps(blocks))
             if len(prompt)>300000:raise GenerationError('The manuscript exceeds the publication-review context budget. Split it into smaller documents.')
             prompts.append(prompt)
-        self.config['_publication_block_ids']=sorted(blocks)
-        try:reviews=self.models.many('polish',prompts,'publication-quality-assets-v2')
-        finally:self.config.pop('_publication_block_ids',None)
-        if any(not isinstance(result,dict) or not isinstance(result.get('checks'),list) for result in reviews):raise GenerationError('Malformed publication review response.')
-        review={'checks':[check for result in reviews for check in result['checks']]}
-        failures,bound_checks=validate_bound_review(review,s,blocks)
-        if failures:
-            self.e.checkpoint({**s,'quality_errors':failures,'publication_review':review})
+        fingerprint=publication_fingerprint(s)
+        review=s.get('publication_review')
+        cache_valid=s.get('publication_review_fingerprint')==fingerprint
+        # One-time adoption of a legacy rejected review from its durable checkpoint.
+        # Require the exact completed paid responses, not a newly synthesized review.
+        if review and not s.get('publication_review_fingerprint') and s.get('quality_errors'):
+            saved=[]
+            for call in self.e.db.execute("SELECT result FROM generator_calls WHERE job_id=? AND stage LIKE 'publication-quality-assets-v2:%' AND status='complete' ORDER BY CAST(substr(stage,instr(stage,':')+1) AS INTEGER),rowid",(self.e.id,)):
+                try:
+                    from .generation_response import decode_object
+                    saved.extend(decode_object(json.loads(call['result'])[0]['content'],repair_empty_key=True)['checks'])
+                except (ValueError,KeyError,IndexError,TypeError):saved=[];break
+            cache_valid=(bool(saved) and saved==review.get('checks') and legacy_sources_unchanged)
+        if not cache_valid:
+            self.config['_publication_block_ids']=sorted(blocks)
+            try:reviews=self.models.many('polish',prompts,'publication-quality-assets-v2')
+            finally:self.config.pop('_publication_block_ids',None)
+            if any(not isinstance(result,dict) or not isinstance(result.get('checks'),list) for result in reviews):raise GenerationError('Malformed publication review response.')
+            review={'checks':[check for result in reviews for check in result['checks']]}
+        # Checkpoint the raw decision before classification or corrective labeling.
+        s={**s,'publication_review':review,'publication_review_fingerprint':fingerprint}
+        self.e.checkpoint(s)
+        from .generation_verification import decide,POLICY_VERSION
+        outcome,findings,bound_checks=decide(s,review,blocks)
+        gate={'passed':outcome=='PASS','outcome':outcome,'policy_version':POLICY_VERSION,'fingerprint':fingerprint,'checks':bound_checks,'findings':findings}
+        if outcome=='BLOCKED':
+            failures=[f['code']+': '+f['reason'] for f in findings if f['kind']=='integrity']
+            self.e.checkpoint({**s,'quality_errors':failures,'publication_quality':gate})
             raise GenerationError('Publication-quality gate rejected the manuscript: '+' '.join(failures[:8]))
-        gate={'passed':True,'fingerprint':publication_fingerprint(s),'checks':bound_checks}
+        warnings=[w for w in s.get('warnings',[]) if not w.startswith('Verification required:')]
+        if outcome=='WARNING':
+            warnings+=['Verification required: '+f['reason']+(' Claim: '+f['claim'] if f.get('claim') else '') for f in findings]
+            # A deterministic corrective edit adds linked qualifications to the
+            # rendered draft. It does not rewrite the author's thesis or call AI.
+            s={**s,'publication_correction':{'fingerprint':fingerprint,'attempts':1,'kind':'reader_verification_labels'}}
+        s={**s,'warnings':list(dict.fromkeys(warnings)),'publication_quality':gate}
         html=assemble(self.config,{**s,'publication_quality':gate})
         gate['html_hash']=digest(html)
         self.e.directory.mkdir(parents=True,exist_ok=True)
         temporary=self.e.directory/'document.tmp.html';temporary.write_text(html);temporary.replace(self.e.directory/'document.html')
         (self.e.directory/'sources.json').write_text(json.dumps(s['sources'],ensure_ascii=False))
-        return {'publication_assets':assets,'publication_calculations':calculations,'publication_quality':gate,'quality_errors':[],'intent_audits':s['intent_audits']+[{'stage':'publication','passed':True,'manuscript_hash':digest(s['document'])}]}
+        return {**{key:s[key] for key in ('sources','warnings','publication_review','publication_review_fingerprint','publication_correction','verification_research') if key in s},'publication_assets':assets,'publication_calculations':calculations,'publication_quality':gate,'quality_errors':[],'intent_audits':s['intent_audits']+[{'stage':'publication','passed':outcome=='PASS','outcome':outcome,'manuscript_hash':digest(s['document'])}]}
 
     def html_review(self,s):
         assert_publication(s,(self.e.directory/'document.html').read_text())
+        if s.get('publication_quality',{}).get('outcome')=='WARNING':
+            self.e.message('Complete draft with verification warnings. Exporting HTML and PDF for review; factual accuracy is not certified.')
+            return {}
         return self.e.html_review(s)
 
     def pdf(self,s):

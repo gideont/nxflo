@@ -20,6 +20,13 @@ def recovery_info(connection,row):
             if status in ('failed','expired','cancelled'):
                 blocked='The provider ended the existing Batch as '+status+'. Its results and billing must be reconciled before submitting a replacement Batch.'
                 break
+    full=(row if 'state' in row.keys() else connection.execute('SELECT state FROM generator_jobs WHERE id=?',(row['id'],)).fetchone()) if row['status'] in ('failed','cancelled') else None
+    state=json.loads(full['state']) if full else {}
+    gate=state.get('publication_quality',{})
+    if not blocked and gate.get('outcome')=='BLOCKED':
+        from .generation_quality import publication_fingerprint
+        if gate.get('fingerprint')==publication_fingerprint(state):
+            blocked='Publication is blocked by an integrity failure. Correct the manuscript or evidence before resuming; unchanged work will not be reviewed or billed again.'
     return {**saved,'can_resume':row['status'] in ('failed','cancelled','queued') and not blocked,'blocked_reason':blocked,
             'retry_at':row['next_run_at'] if row['status']=='queued' and saved.get('attempts') else None}
 
