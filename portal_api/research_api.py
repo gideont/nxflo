@@ -10,7 +10,7 @@ from .generation_intent import digest
 from .generator_revisions import prepare_revision,history_entry
 from .generator_library import attach_new
 from .research_store import ensure_budget,increase,summary
-from .research_workflow import report,VALIDATION_POLICY
+from .research_workflow import report,VALIDATION_POLICY,RETRIEVAL_POLICY
 
 
 def start_verification(connection,parent_id,Error):
@@ -27,11 +27,11 @@ def start_verification(connection,parent_id,Error):
         ensure_budget(connection,parent['document_id'],5)
         limit=summary(connection,parent['document_id'])['limit']
         research=original.get('research',{})
-        if original.get('operation')=='verification' and research.get('status')=='complete' and research.get('validation_policy')==VALIDATION_POLICY and research.get('model')==settings['model'] and research.get('as_of')==db.now()[:10] and research.get('budget',{}).get('limit',0)>=limit:
+        if original.get('operation')=='verification' and research.get('status')=='complete' and research.get('validation_policy')==VALIDATION_POLICY and research.get('retrieval_policy')==RETRIEVAL_POLICY and research.get('model')==settings['model'] and research.get('as_of')==db.now()[:10] and research.get('budget',{}).get('limit',0)>=limit:
             from .research_workflow import blocks
             if research.get('block_hashes')=={key:digest(value['text']) for key,value in blocks({**original,'config':config}).items()}:
                 return {'id':parent['id'],'document_id':parent['document_id'],'version_id':parent['version_id'],'version':config['version'],'status':parent['status'],'reused':True}
-        input_key=digest({'document':original['document'],'sources':original.get('sources',[]),'model':settings['model'],'limit':limit,'date':db.now()[:10],'policy':2,'validation':VALIDATION_POLICY})
+        input_key=digest({'document':original['document'],'sources':original.get('sources',[]),'model':settings['model'],'limit':limit,'date':db.now()[:10],'policy':2,'validation':VALIDATION_POLICY,'retrieval':RETRIEVAL_POLICY})
         for row in connection.execute('SELECT id,state,config,status,document_id,version_id FROM generator_jobs WHERE document_id=? ORDER BY created_at DESC',(parent['document_id'],)):
             saved=json.loads(row['state'])
             if saved.get('verification_request_key')==input_key:

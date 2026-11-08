@@ -128,8 +128,8 @@ def publication_fingerprint(state):
     from .generation_verification import POLICY_VERSION
     payload={'document':state['document'],'contract':state['author_contract'],'financials':state.get('financials'),'sources':state.get('sources',[]),'criteria':criteria(state['author_contract']),'verification_policy':POLICY_VERSION,'charts':state.get('charts',[])}
     if state.get('research_policy')==2:
-        from .research_workflow import VALIDATION_POLICY
-        payload.update(research_validation=VALIDATION_POLICY,research_claims=state.get('research',{}).get('claims',[]),research_blocks=state.get('research',{}).get('block_hashes',{}),factual_corrections=state.get('research_corrections',[]),verified_title=state.get('verified_title'))
+        from .research_workflow import VALIDATION_POLICY,RETRIEVAL_POLICY
+        payload.update(research_validation=VALIDATION_POLICY,research_retrieval=RETRIEVAL_POLICY,research_claims=state.get('research',{}).get('claims',[]),research_blocks=state.get('research',{}).get('block_hashes',{}),factual_corrections=state.get('research_corrections',[]),verified_title=state.get('verified_title'))
     if 'publication_assets' in state:
         payload.update(publication_assets=state['publication_assets'],publication_calculations=state.get('publication_calculations',[]))
     return digest(payload)

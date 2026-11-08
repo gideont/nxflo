@@ -60,6 +60,8 @@ class ResearchTests(unittest.TestCase):
                 text=claim['text'];old='2024' in text;quote=CORRECT if 'MEHKO' in text else CLAIMS[2] if 'Food Premises' in text else CLAIMS[3]
                 result['claims'].append({'id':claim['id'],'status':'unresolved' if self.inconclusive or self.bad_recheck and 'independent recheck' in prompt else 'contradicted' if old else 'supported','reason':'The source establishes the applicable requirements.' if not old else 'The provided year and cap differ from the controlling rule.','suggested_correction':CORRECT if old else '',
                     'evidence':[{'url':url,'quote':'invented quote not in the page' if self.bad_quote else quote,'authority':authority,'scope_matches':True,'date_matches':True} for url,authority in ((RULE,'primary_rule'),(GUIDE,'official_guidance'))]})
+        elif 'Select up to five EXISTING official URLs' in prompt:
+            candidates=json.loads(prompt.split('\nCandidate links: ',1)[1]);result={'urls':list(candidates)[:5]}
         elif 'Apply ONE minimal' in prompt:
             content=json.JSONDecoder().raw_decode(prompt.split('\nBlocks: ',1)[1])[0];claims=json.JSONDecoder().raw_decode(prompt.split('\nClaims and assessments: ',1)[1])[0]
             result={'patches':[{'block':key,'before':block['text'],'after':block['text'].replace('around 2024','in 2019').replace('$100,000','$150,000'),'claim_ids':[c['id'] for c in claims if key in c['blocks']],'reason':'Corrected the factual date and threshold from official evidence.'} for key,block in content.items() if '2024' in block['text']]}
@@ -118,6 +120,31 @@ class ResearchTests(unittest.TestCase):
                 engine.db.execute('DELETE FROM generator_research_cache')
                 with self.assertRaises(ResearchPaused):verifier.inventory({},content)
         engine.db.close()
+    def test_official_link_follow_is_bounded_and_changed_reasons_do_not_add_search_rounds(self):
+        engine=Engine(self.path,self.id);verifier=Verifier(engine);state={'sources':[]};calls=[]
+        claims=[{'id':'c','text':'The state MEHKO rule permits home kitchens.','kind':'regulatory','scope':'California','query':'state MEHKO rules','blocks':['P0.0'] }]
+        base=claims[0]['query']+' official controlling law implementation guidance primary source'
+        def retrieval(*args,**kwargs):
+            method,url,body,headers,provider=args[5];calls.append((url,body))
+            if url.endswith('/search'):return {'results':[{'url':'https://guide.example/overview'}],'usage':{'credits':2 if body['search_depth']=='advanced' else 1}}
+            if body['urls']==['https://guide.example/overview']:
+                text=f'The rule and implementation: [law]({RULE}) [guidance]({GUIDE}) [spoof](https://example.gov.attacker.org/fake).'
+                return {'results':[{'url':body['urls'][0],'raw_content':text}],'usage':{'credits':1}}
+            self.assertEqual(set(body['urls']),{RULE,GUIDE})
+            return {'results':[{'url':u,'raw_content':SOURCE} for u in body['urls']],'usage':{'credits':1}}
+        def model(models,*args,**kwargs):return self.provider(models,*args,**kwargs)
+        with patch('portal_api.research_client.model_rates',return_value=RATES),patch.object(Models,'request',new=model),patch('portal_api.research_client.monitored_call',side_effect=retrieval),patch('portal_api.generation_sources.public_addresses',return_value=['93.184.216.34']):
+            sources=verifier.sources(state,base,0,claims);self.assertEqual({s['url'] for s in sources},{'https://guide.example/overview',RULE,GUIDE})
+            verifier.sources(state,base,0,claims)
+            verifier.sources(state,base+' missing state statute',1,claims)
+            verifier.sources(state,base+' different assessment reason',1,claims)
+            self.assertEqual(sum(u.endswith('/search') for u,b in calls),2)
+            self.assertEqual(sum(u.endswith('/extract') for u,b in calls),2)
+            self.assertEqual(len(self.ai_calls),1)
+            with patch.object(verifier.client,'ai',return_value={'urls':['https://unseen.gov/invented']}):
+                with self.assertRaises(ResearchPaused):verifier.sources(state,base,0,claims)
+            self.assertEqual(len(calls),4)
+        engine.db.close()
     def test_failed_corrective_recheck_cannot_loop_or_clear_warning(self):
         self.bad_recheck=True;job=self.start();row=self.run_job(job['id']);self.assertEqual(row['status'],'needs_review',row['error'])
         state=json.loads(row['state']);self.assertEqual(state['document'],self.source_state['document']);self.assertFalse(state.get('research_corrections'))
@@ -172,6 +199,18 @@ class ResearchTests(unittest.TestCase):
         for change in ({'quote':'This quotation is fabricated.'},{'scope_matches':False},{'date_matches':False},{'url':'https://blog.example/unknown'}):
             value=deepcopy(good);value['evidence'][0].update(change)
             self.assertEqual(validate_assessments({'claims':[value]},[claim],sources)[0]['status'],'unresolved')
+    def test_inaccessible_page_retains_cached_evidence_but_cannot_certify_regulatory_claim(self):
+        engine=Engine(self.path,self.id);verifier=Verifier(engine);state={'sources':[]}
+        source={'id':'V1','url':RULE,'text':SOURCE,'role':'external'}
+        from datetime import datetime,timezone
+        verifier.store.save('source:'+digest({'url':RULE,'date':datetime.now(timezone.utc).date().isoformat(),'policy':2}),source)
+        with patch.object(verifier.client,'extract',side_effect=ResearchPaused('search_rejected','Extraction unavailable.')):
+            sources=verifier.download(state,[RULE,GUIDE])
+        self.assertEqual(sources,[source]);self.assertEqual(state['sources'],[source])
+        claim={'id':'c','text':'A regulatory assertion.','kind':'regulatory','blocks':['P0.0']}
+        answer={'id':'c','status':'supported','reason':'Incomplete evidence.','evidence':[{'url':RULE,'quote':CORRECT,'authority':'primary_rule','scope_matches':True,'date_matches':True}]}
+        self.assertEqual(validate_assessments({'claims':[answer]},[claim],sources)[0]['status'],'unresolved')
+        engine.db.close()
     def test_retrieval_cache_reuses_same_day_but_refreshes_a_later_date(self):
         engine=Engine(self.path,self.id);client=ResearchClient(engine)
         with patch('portal_api.research_client.model_rates',return_value=RATES),patch('portal_api.research_client.monitored_call',side_effect=self.tavily):
