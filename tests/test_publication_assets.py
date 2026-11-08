@@ -84,6 +84,21 @@ On the right: an informed investment decision.
         self.assertTrue(all('<figure' in render_asset(a) for a in assets))
         returns=next(c for c in calcs if c['id']=='return-definitions')['table']['rows'][1]
         self.assertEqual(returns[1:3],['3.33','0.48'])
+    def test_funding_ratio_and_recovery_are_explicit_calculations(self):
+        _,calcs=publication_assets(self.state())
+        funding=next(c for c in calcs if c['id']=='funding-definitions')
+        self.assertEqual(funding['table']['rows'][1],['base','300.00','1,270.00','4.23','12'])
+        self.assertIn('first month',funding['formulas']['cash_recovery_month'])
+    def test_response_syntax_recovery_never_changes_values_or_infers_missing_work(self):
+        import json
+        from portal_api.generation_response import decode_object
+        raw='{"checks":[{"passed":false,"reason":"Keep this rejection.","}]}'
+        self.assertEqual(decode_object(raw,True),{'checks':[{'passed':False,'reason':'Keep this rejection.'}]})
+        quoted={'reason':'Literal ,"} and escaped \\" quote must stay intact.'}
+        self.assertEqual(decode_object(json.dumps(quoted),True),quoted)
+        for raw in ('{"checks":[{"passed":true', '{"checks":[{"passed":true,"unknown"}]}', '[{"passed":true}]'):
+            with self.assertRaises(ValueError):decode_object(raw,True)
+        with self.assertRaises(ValueError):decode_object('{"passed":true,"}',False)
     def test_automation_uses_economic_benefit_and_total_cash_expenditure(self):
         source='10 hours × $40 × 48 weeks = $19,200\nImplementation cost: $4,000\nMonthly operating cost: $200\nFirst-year cash expenditure: $6,400\nNet modeled economic benefit: $12,800'
         calc=automation_calculation(source)

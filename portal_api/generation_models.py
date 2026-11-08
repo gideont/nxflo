@@ -8,6 +8,7 @@ from .generation_errors import GenerationError,TransientGenerationError,Rejected
 from .generation_tasks import monitored_call
 from .generation_transport import fetch_json
 from .generation_schema import response_schema
+from .generation_response import decode_object
 from .generation_webbudget import WEB_MODEL,web_plan
 from .generation_billing import usage_bill,generation_bill,record_bill,total_bill
 from . import db
@@ -98,7 +99,7 @@ class Models:
         output=[]
         for message in result:
             try:
-                value=json.loads(message['content'].strip().removeprefix('```json').removeprefix('```').removesuffix('```').strip())
+                value=decode_object(message['content'],repair_empty_key=stage.startswith('publication-quality'))
                 if not isinstance(value,dict):raise ValueError()
                 output.append(value)
             except (ValueError,KeyError,TypeError):raise GenerationError('Invalid model JSON during '+stage+'. Try a different model or shorter target length.')

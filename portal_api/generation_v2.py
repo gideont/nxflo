@@ -278,6 +278,7 @@ class IntentPipeline:
                 'Inspect those assets before claiming a figure or worked calculation is absent. Distinguish return on initial investment from return on total cash expenditure and modeled economic benefit; these are explicitly different denominators, not contradictory formulas. '
                 'Return JSON {"checks":[{"criterion":"exact criterion ID","passed":true,"evidence_blocks":["valid publication block ID"],"reason":"assessment"}]}. '
                 'Cite existing publication block IDs, never invent quotations or certify missing work. Reject actual unsupported claims, contradictions or absent required content. '
+                'Verify arithmetic derived from registered hypothetical inputs directly; such calculations do not require external empirical citations. Any rejected criterion must identify a specific actual contradiction, incorrect calculation or unsupported claim. '
                 '\nManuscript: '+json.dumps(s['document'])+'\nCalculated hypothetical models: '+json.dumps(s.get('financials'))+'\nPublication blocks: '+json.dumps(blocks))
             if len(prompt)>300000:raise GenerationError('The manuscript exceeds the publication-review context budget. Split it into smaller documents.')
             prompts.append(prompt)

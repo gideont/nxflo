@@ -95,6 +95,14 @@ def publication_assets(state):
         calculations.append({'id':'return-definitions','chapter':owner,'title':'Return definitions: use the stated denominator','note':'Return on initial investment uses startup expenditure as its denominator. Return on total cash expenditure uses startup expenditure plus operating cash expenses. Both use the same net project cash result; they answer different questions and must be labeled distinctly. Total cash expenditure is not the peak funding requirement: cash receipts may finance later expenses. Percentages may be rounded to the displayed precision.',
                              'formulas':{'return_on_initial_investment':'net_project_cash_result / initial_expenditure × 100','return_on_total_cash_expenditure':'net_project_cash_result / (initial_expenditure + operating_cash_expenses) × 100'},
                              'table':{'title':'Calculated returns under both explicit definitions','columns':['Scenario','Return on initial investment (%)','Return on total cash expenditure (%)','Total cash expenditure'],'rows':[[display(cell) for cell in row] for row in rows],'classification':'hypothetical'}})
+        funding_rows=[]
+        for result in group['results']:
+            initial=Decimal(str(result['initial_investment']));peak=Decimal(str(result['maximum_funding_requirement']))
+            funding_rows.append([result['case'],display(float(initial)),display(float(peak)),display(float(peak/initial)) if initial else 'Undefined',str(result['break_even_month']) if result['break_even_month'] is not None else 'Not reached'])
+        calculations.append({'id':'funding-definitions','chapter':owner,'title':'Cash funding exposure and recovery',
+            'note':'Peak cash funding is the largest cumulative cash deficit, including startup expenditure. The funding multiple compares that complete requirement with startup expenditure alone; it is not the incremental shortfall. Cash outlay is recovered at the first month-end when cumulative project cash flow is nonnegative. These are calculated hypothetical results, not observed outcomes.',
+            'formulas':{'peak_cash_funding':'max(0, −min(cumulative_project_cash_flow))','funding_multiple':'peak_cash_funding / initial_expenditure','cash_recovery_month':'first month with cumulative_project_cash_flow >= 0'},
+            'table':{'title':'Calculated cash funding and recovery checkpoints','columns':['Scenario','Initial expenditure','Peak cash funding','Peak / initial (times)','Cash recovery month'],'rows':funding_rows,'classification':'hypothetical'}})
     automation=automation_calculation(state['author_original'])
     if automation:
         owner=next((i for i,ch in enumerate(state['document']['chapters']) if any('19,200' in p or '19200' in p for p in ch['paragraphs'])),len(state['document']['chapters'])-1)
