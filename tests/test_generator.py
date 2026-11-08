@@ -298,9 +298,9 @@ class GeneratorTests(unittest.TestCase):
         restarted=make_test_app(self.path).test_client();sign_in(restarted)
         saved=restarted.get(BASE).json['config'];self.assertEqual(saved['revision_parent'],parent);self.assertEqual(saved['feedback'],cfg['feedback'])
 
-    def test_web_budget_is_saved_and_cannot_exceed_thirty_cents(self):
-        self.assertEqual(self.owner.get(BASE).json['config']['web_budget_usd'],.30)
-        for value in (-.01,.31,True,'0.30',float('nan')):
+    def test_shared_research_budget_defaults_to_five_and_validates_limits(self):
+        self.assertEqual(self.owner.get(BASE).json['config']['web_budget_usd'],5.0)
+        for value in (-.01,1000.01,True,'5.00',float('nan')):
             self.assertEqual(self.put({**self.config,'web_budget_usd':value}).status_code,400)
         self.assertEqual(self.put({**self.config,'web_budget_usd':0}).status_code,200)
         self.assertEqual(self.owner.get(BASE).json['config']['web_budget_usd'],0)

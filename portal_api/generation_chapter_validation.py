@@ -102,5 +102,5 @@ def chapter_issues(value,plan,state,config):
     scoped={**known,'items':[item for item in known['items'] if item['id'] in refs],
             'required_sections':sorted(keys),'structure':[h for h in known['structure'] if h['id'] in keys]}
     if 'narrative_structure' in known:scoped['narrative_structure']=[h for h in known['narrative_structure'] if h['id'] in keys]
-    errors.extend(local_publication_issues({'chapters':[value]},scoped,config,state['sources'],[plan],state.get('financials')))
+    errors.extend(local_publication_issues({'chapters':[value]},scoped,config,state['sources'],[plan],state.get('financials'),state.get('research')))
     return sorted({error.replace('Chapter 1','This chapter') for error in errors}),True

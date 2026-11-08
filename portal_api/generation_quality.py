@@ -34,7 +34,7 @@ def table_issues(table,sources):
     return []
 
 
-def provenance_issues(document,sources,config,financials=None):
+def provenance_issues(document,sources,config,financials=None,research=None):
     errors=[];available={s['id']:s for s in sources if s.get('text')}
     for ch in document.get('chapters',[]):
         text=' '.join(ch.get('paragraphs',[]))
@@ -64,6 +64,14 @@ def provenance_issues(document,sources,config,financials=None):
         for ch in document.get('chapters',[]):
             for claim in ch.get('claims',[]):
                 if claim.get('classification')=='empirical':allowed.update(n.replace(',','') for n in re.findall(r'-?\d[\d,]*(?:\.\d+)?',claim.get('quote','')))
+        # Approved source-bound corrections can introduce a factual number that
+        # was absent from the immutable original brief. Keep quotation checks.
+        available_sources={source['id']:source for source in sources if source.get('role')=='external'}
+        for item in (research or {}).get('claims',[]):
+            for proof in item.get('evidence',[]):
+                source=available_sources.get(proof.get('source_id'));quote=proof.get('quote','')
+                if source and proof.get('source_hash')==digest(source['text']) and quote and quote in source['text']:
+                    allowed.update(n.replace(',','') for n in re.findall(r'-?\d[\d,]*(?:\.\d+)?',quote))
         def numbers(value,key=''):
             if isinstance(value,dict):
                 for name,item in value.items():numbers(item,name)
@@ -85,8 +93,8 @@ def provenance_issues(document,sources,config,financials=None):
     return list(dict.fromkeys(errors))
 
 
-def local_publication_issues(document,contract,config,sources,plans,financials=None):
-    issues=fidelity_issues(document,contract,plans)+provenance_issues(document,sources,config,financials)
+def local_publication_issues(document,contract,config,sources,plans,financials=None,research=None):
+    issues=fidelity_issues(document,contract,plans)+provenance_issues(document,sources,config,financials,research)
     text=manuscript_text(document)
     if PLACEHOLDERS.search(text):issues.append('Unfinished placeholder or editorial instruction leaked into the manuscript.')
     if len(DISCLAIMERS.findall(text))>1:issues.append('Repetitive blanket disclaimers are replacing useful content.')
@@ -119,6 +127,8 @@ def validate_publication_review(review,document,contract):
 def publication_fingerprint(state):
     from .generation_verification import POLICY_VERSION
     payload={'document':state['document'],'contract':state['author_contract'],'financials':state.get('financials'),'sources':state.get('sources',[]),'criteria':criteria(state['author_contract']),'verification_policy':POLICY_VERSION,'charts':state.get('charts',[])}
+    if state.get('research_policy')==2:
+        payload.update(research_claims=state.get('research',{}).get('claims',[]),research_blocks=state.get('research',{}).get('block_hashes',{}),factual_corrections=state.get('research_corrections',[]),verified_title=state.get('verified_title'))
     if 'publication_assets' in state:
         payload.update(publication_assets=state['publication_assets'],publication_calculations=state.get('publication_calculations',[]))
     return digest(payload)

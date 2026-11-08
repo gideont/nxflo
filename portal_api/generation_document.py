@@ -46,7 +46,7 @@ def assemble(config,state):
     def paragraph(text):
         encoded=e(text)
         return re.sub(r'\[([A-Z]\d+)\]',lambda m:'<a href="#source-'+m[1]+'">'+m[0]+'</a>' if m[1] in allowed else m[0],encoded)
-    title=config['title'] or state.get('outline',{}).get('title') or 'Research report'
+    title=state.get('verified_title') or config['title'] or state.get('outline',{}).get('title') or 'Research report'
     company=config['company'] or ('Independent author' if state.get('pipeline_version')==2 and config.get('document_intent')!='research_report' else 'Independent research')
     date=config['release_date'] or datetime.now(ZoneInfo('America/Vancouver')).date().isoformat()
     logo='<img class="logo" src="'+config['logo']+'" alt="'+e(company)+' logo">' if config['logo'] else ''
@@ -98,6 +98,9 @@ def assemble(config,state):
     body+='<section id="sources" class="appendix"><p class="eyebrow">Reference register</p><h2>Sources</h2><ol class="sources-list">'+''.join('<li id="source-'+e(s['id'])+'"><strong>['+e(s['id'])+']</strong> '+e(s['label'])+(' · <a rel="noopener noreferrer" href="'+e(s['url'])+'">'+e(s['url'])+'</a>' if s.get('url','').startswith(('https://','http://')) else '')+(' · '+e(s['warning']) if s.get('warning') else '')+'</li>' for s in sources)+'</ol></section>'+notes
     if findings:
         body+='<section id="verification-register" class="appendix verification-register"><h2>Outstanding verification issues</h2><ol>'+''.join('<li id="verification-note-'+str(i+1)+'"><strong>'+e(f['reason'])+'</strong>'+('<p>Unverified statement: '+e(f['claim'])+'</p>' if f.get('claim') else '')+'</li>' for i,f in enumerate(findings))+'</ol></section>'
+    if state.get('research'):
+        from .research_render import verification_appendix
+        body+=verification_appendix(state)
     history=state.get('revision_history') or [{'version':config.get('version') or '1.0','date':date,'prepared_by':team['name'] if team else 'Not specified','summary':'Initial issue.'}]
     document_control='<section id="document-control" class="document-control"><p class="eyebrow">Document governance</p><h2>Document control and revision history</h2><dl class="document-register"><dt>Document title</dt><dd>'+e(title)+'</dd><dt>Issuing organization</dt><dd>'+e(company)+'</dd><dt>Current version</dt><dd>'+e(config['version'] or '1.0')+'</dd><dt>Release date</dt><dd>'+e(date)+'</dd></dl><div class="revision-table-wrap"><table class="revision-table"><caption>Record of document revisions</caption><thead><tr><th scope="col">Version</th><th scope="col">Revision date</th><th scope="col">Prepared by</th><th scope="col">Change summary</th></tr></thead><tbody>'+''.join('<tr><td data-label="Version">'+e(item['version'])+'</td><td data-label="Revision date">'+e(item['date'])+'</td><td data-label="Prepared by">'+e(item['prepared_by'])+'</td><td data-label="Change summary">'+e(item['summary'])+'</td></tr>' for item in history)+'</tbody></table></div><p class="small">This record identifies the document issue and its revisions. A generated revision does not imply independent verification or formal approval.</p></section>'
     if team or website:

@@ -52,7 +52,12 @@ class IntentPipeline:
         if external:
             notes=self.e.summarize({**s,'sources':external})['notes']
         else:notes=[]
-        return {'author_contract':contract,'notes':notes,'intent_audits':[{'stage':'extract','source_hash':contract['source_hash'],'passed':True}]}
+        update={'author_contract':contract,'notes':notes,'intent_audits':[{'stage':'extract','source_hash':contract['source_hash'],'passed':True}]}
+        if s.get('research_policy')==2 and self.config.get('web_search'):
+            from .research_workflow import run
+            enriched=run(self.e,{**s,**update})
+            update.update({key:enriched[key] for key in ('sources','research','research_corrections') if key in enriched})
+        return update
 
     def outline(self,s):
         c=self.config;contract=s['author_contract'];refs=[item['id'] for item in contract['items']]
@@ -138,6 +143,7 @@ class IntentPipeline:
                 '\nAssigned chapter plan: '+json.dumps(plan)+
                 '\nRegistered formulas (reference their IDs, never replace them): '+json.dumps(FORMULAS)+
                 '\nCalculated hypothetical examples and assumptions: '+json.dumps(financial_summary)+
+                '\nIndependent factual findings and permitted factual corrections (the original brief still governs authorial intent): '+json.dumps(s.get('research',{}).get('claims',[]))[:20000]+
                 '\nExternal evidence notes (supporting material, not the author\'s intent): '+json.dumps(s.get('notes',[])))
 
     def validate_chapters(self,s,chapters,stage,repair=True):
@@ -169,7 +175,7 @@ class IntentPipeline:
                     try:render_reference(ref,s.get('financials'),s['author_original'])
                     except (GenerationError,TypeError,KeyError):problems.append('Invalid calculated figure reference.')
             if problems:diagnostics[index]=problems
-        errors=sorted(set(local_publication_issues(document,s['author_contract'],self.config,s['sources'],plans,s.get('financials')))) if safe else []
+        errors=sorted(set(local_publication_issues(document,s['author_contract'],self.config,s['sources'],plans,s.get('financials'),s.get('research')))) if safe else []
         # Cross-chapter defects (for example repeated disclaimers) still require
         # whole-manuscript validation. They must never disappear through scoping.
         if errors and not diagnostics:diagnostics={i:errors for i in range(len(chapters))}
@@ -253,7 +259,17 @@ class IntentPipeline:
         return next((i for i,plan in enumerate(s['outline']['chapters']) if 'financial_projections' in plan['section_keys']),len(s['outline']['chapters'])-1)
 
     def assemble(self,s):
-        errors=local_publication_issues(s['document'],s['author_contract'],self.config,s['sources'],s['outline']['chapters'],s.get('financials'))
+        preflight=local_publication_issues(s['document'],s['author_contract'],self.config,s['sources'],s['outline']['chapters'],s.get('financials'),s.get('research'))
+        if preflight:
+            gate={'outcome':'BLOCKED','passed':False,'fingerprint':publication_fingerprint(s),'findings':[{'kind':'integrity','reason':issue,'blocks':[]} for issue in preflight]}
+            self.e.checkpoint({**s,'quality_errors':preflight,'publication_quality':gate})
+            raise GenerationError('Publication-quality gate rejected the manuscript: '+' '.join(preflight[:8]))
+        if s.get('research_policy')==2 and self.config.get('web_search'):
+            from .research_workflow import run
+            before=digest(s['document'])
+            s=run(self.e,s)
+            if before!=digest(s['document']):s={**s,**self.charts(s)}
+        errors=local_publication_issues(s['document'],s['author_contract'],self.config,s['sources'],s['outline']['chapters'],s.get('financials'),s.get('research'))
         if s['author_contract']['financial_examples'] and not s.get('financials'):errors.append('Required worked financial projections are missing.')
         if s.get('financials'):
             expected=build_financials({'groups':[{k:v for k,v in group.items() if k!='results'} for group in s['financials']['groups']]})
@@ -264,7 +280,7 @@ class IntentPipeline:
             raise GenerationError('Publication-quality gate rejected the manuscript: '+' '.join(errors[:8]))
         from .generation_verification import research,POLICY_VERSION
         previous_sources=s['sources']
-        s=research(self,s)
+        if s.get('research_policy')!=2:s=research(self,s)
         legacy_sources_unchanged=s['sources']==previous_sources
         from .generation_publication import publication_assets,review_blocks
         assets,calculations=publication_assets(s)
@@ -272,7 +288,7 @@ class IntentPipeline:
         self.e.checkpoint(s)
         blocks=review_blocks(s)
         all_criteria=criteria(s['author_contract'])
-        prompts=[]
+        prompts=[];publication_context_paused=False
         for offset in range(0,len(all_criteria),24):
             requested=all_criteria[offset:offset+24]
             prompt=('Independently assess this manuscript for publication. '+instructions(self.config)+context(s)+evidence_context(s['sources'])+
@@ -289,7 +305,12 @@ class IntentPipeline:
                 'Separate accuracy verification from integrity: issue_type is none for passes, unverified_claim only for incomplete factual or regulatory evidence, and integrity for fabricated citations, contradictions, broken calculations, missing content or unusable prose. '
                 'An author-provided regulatory assertion without external corroboration must fail accuracy with unverified_claim, never be certified by citing the brief. Preserve the argument; require precise reader-facing qualifications rather than deletion. '
                 'Verify arithmetic derived from registered hypothetical inputs directly; such calculations do not require external empirical citations. Any rejected criterion must identify a specific actual contradiction, incorrect calculation or unsupported claim. '
+                '\nIndependent claim ledger (unresolved factual claims are unverified_claim; source-supported corrections may replace factual errors from the original brief): '+json.dumps(s.get('research',{}).get('claims',[]))+
                 '\nManuscript: '+json.dumps(s['document'])+'\nCalculated hypothetical models: '+json.dumps(s.get('financials'))+'\nPublication blocks: '+json.dumps(blocks))
+            # Do not submit an oversized research packet. The unchanged legacy
+            # guard below still rejects oversized legacy publication requests.
+            if s.get('research_policy')==2 and len(prompt.encode())>180000:
+                publication_context_paused=True;prompts=[];break
             if len(prompt)>300000:raise GenerationError('The manuscript exceeds the publication-review context budget. Split it into smaller documents.')
             prompts.append(prompt)
         fingerprint=publication_fingerprint(s)
@@ -297,7 +318,7 @@ class IntentPipeline:
         cache_valid=s.get('publication_review_fingerprint')==fingerprint
         # One-time adoption of a legacy rejected review from its durable checkpoint.
         # Require the exact completed paid responses, not a newly synthesized review.
-        if review and not s.get('publication_review_fingerprint') and s.get('quality_errors'):
+        if s.get('research_policy')!=2 and review and not s.get('publication_review_fingerprint') and s.get('quality_errors'):
             saved=[]
             for call in self.e.db.execute("SELECT result FROM generator_calls WHERE job_id=? AND stage LIKE 'publication-quality-assets-v2:%' AND status='complete' ORDER BY CAST(substr(stage,instr(stage,':')+1) AS INTEGER),rowid",(self.e.id,)):
                 try:
@@ -307,7 +328,19 @@ class IntentPipeline:
             cache_valid=(bool(saved) and saved==review.get('checks') and legacy_sources_unchanged)
         if not cache_valid:
             self.config['_publication_block_ids']=sorted(blocks)
-            try:reviews=self.models.many('polish',prompts,'publication-quality-assets-v2')
+            try:
+                if s.get('research_policy')==2 and self.config.get('web_search'):
+                    from .research_client import ResearchClient
+                    from .research_store import ResearchPaused
+                    try:
+                        if publication_context_paused:raise ResearchPaused('context_limit','Independent publication review exceeds the bounded packet size; no model request was submitted.')
+                        client=ResearchClient(self.e)
+                        reviews=[client.ai('publication-review',prompt) for prompt in prompts]
+                    except ResearchPaused as error:
+                        first=next(iter(blocks))
+                        reviews=[{'checks':[{'criterion':key,'passed':key!='accuracy','evidence_blocks':[first],'reason':('Independent publication review deferred: '+str(error)) if key=='accuracy' else 'Deterministic local structural checks passed; independent review is deferred.','issue_type':'unverified_claim' if key=='accuracy' else 'none'} for key in all_criteria]}]
+                        s={**s,'publication_review_deferred':True}
+                else:reviews=self.models.many('polish',prompts,'publication-quality-assets-v2')
             finally:self.config.pop('_publication_block_ids',None)
             if any(not isinstance(result,dict) or not isinstance(result.get('checks'),list) for result in reviews):raise GenerationError('Malformed publication review response.')
             review={'checks':[check for result in reviews for check in result['checks']]}
@@ -333,7 +366,7 @@ class IntentPipeline:
         self.e.directory.mkdir(parents=True,exist_ok=True)
         temporary=self.e.directory/'document.tmp.html';temporary.write_text(html);temporary.replace(self.e.directory/'document.html')
         (self.e.directory/'sources.json').write_text(json.dumps(s['sources'],ensure_ascii=False))
-        return {**{key:s[key] for key in ('sources','warnings','publication_review','publication_review_fingerprint','publication_correction','verification_research') if key in s},'publication_assets':assets,'publication_calculations':calculations,'publication_quality':gate,'quality_errors':[],'intent_audits':s['intent_audits']+[{'stage':'publication','passed':outcome=='PASS','outcome':outcome,'manuscript_hash':digest(s['document'])}]}
+        return {**{key:s[key] for key in ('document','verified_title','sources','warnings','research','research_corrections','publication_review_deferred','publication_review','publication_review_fingerprint','publication_correction','verification_research') if key in s},'publication_assets':assets,'publication_calculations':calculations,'publication_quality':gate,'quality_errors':[],'intent_audits':s['intent_audits']+[{'stage':'publication','passed':outcome=='PASS','outcome':outcome,'manuscript_hash':digest(s['document'])}]}
 
     def html_review(self,s):
         assert_publication(s,(self.e.directory/'document.html').read_text())

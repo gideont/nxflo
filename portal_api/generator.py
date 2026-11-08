@@ -21,7 +21,7 @@ DEFAULTS = dict(provider='openrouter',databricks_model='',company='Nexusflow Inc
     teams=[{'id':'research','name':'Research Team at Nexusflow Inc.','email':'research@nxflo.com'}],
     feedback='', change_summary='', revision_parent='', title='', topic='', report_type='Research report', document_intent='content_preserving_rewrite', logo='', pages=12,
     length_mode='content', toc=True, charts=True, images=True, graphics=True, color='#315e55', accent='#b97a44',
-    credits='Nexusflow', release_date='', version='1.0', version_override=False, questions='', youtube='', web_search=True, web_budget_usd=0.30,
+    credits='Nexusflow', release_date='', version='1.0', version_override=False, questions='', youtube='', web_search=True, web_budget_usd=5.0,
     summary_model='openai/gpt-6-luna', draft_model='openai/gpt-6-luna',
     polish_model='openai/gpt-6-luna', summary_service='flex', draft_service='flex', polish_service='flex', advanced_models=False, review_passes=3, cost_pages=12, documents=[], illustrations=[])
 
@@ -61,7 +61,8 @@ def validate(data, Error):
     for key in ('summary_model','draft_model','polish_model'):
         if result[key]=='': result[key]=DEFAULTS[key]
         if result[key].endswith(':batch'):raise Error('Batch models have been removed. Choose a synchronous model or Databricks.')
-    if type(result['web_budget_usd']) not in (int,float) or not math.isfinite(result['web_budget_usd']) or not 0<=result['web_budget_usd']<=0.30:raise Error('Web research limit must be between US$0 and US$0.30')
+    from .research_store import valid_limit
+    if not valid_limit(result['web_budget_usd']):raise Error('Research allowance must be between US$0 and US$1,000.')
     if type(result['advanced_models']) is not bool: raise Error('Invalid advanced model setting')
     if not result['advanced_models']:
         for role in ('draft','polish'):
@@ -110,7 +111,6 @@ def validate(data, Error):
         if not isinstance(doc,dict) or set(doc) not in ({'name','text'},{'name','text','role'}) or doc.get('role','author') not in ('author','reference') or not isinstance(doc['name'],str) or len(doc['name'])>200 or not isinstance(doc['text'],str) or len(doc['text'])>80000:
             raise Error('Invalid extracted document')
     if sum(len(d['text']) for d in result['documents'])>240000: raise Error('Combined document text exceeds 240,000 characters')
-    if result['provider']=='databricks':result['web_search']=False
     return result
 
 
@@ -132,11 +132,16 @@ def register_generator(app, conn, login_required, Error):
 
         from .generator_library import migrate
         migrate(conn())
+        from .research_store import migrate as migrate_research
+        migrate_research(conn())
 
     def job_or_404(job_id):
         row=conn().execute('SELECT * FROM generator_jobs WHERE id=?',(job_id,)).fetchone()
         if row is None: raise Error('Document not found',404)
         return row
+
+    from .research_api import register as register_research
+    register_research(app,conn,login_required,Error,job_or_404,BASE)
 
     def worker_online():
         row=conn().execute("SELECT value FROM generator_meta WHERE key='heartbeat'").fetchone()
@@ -154,7 +159,7 @@ def register_generator(app, conn, login_required, Error):
         if not saved['company'] or saved['company']=='Nexusflow':saved['company']='Nexusflow Inc.'
         for role in ('summary','draft','polish'):saved[role+'_model']=saved[role+'_model'].removesuffix(':batch')
         return jsonify(config=saved, revision=row['revision'] if row else 0,
-            documents=library(conn()), defaults=DEFAULTS,providers=providers(), worker_online=worker_online(), configured=bool(os.environ.get('OPENROUTER_API_KEY','').strip()), jobs=[dict(id=j['id'],status=j['status'],step=j['step'],created_at=j['created_at'],published_at=j['published_at'],error=j['error'],title=json.loads(j['config'])['title'],version=json.loads(j['config'])['version'],parent_id=j['parent_id'],can_resume=recovery_info(conn(),j)['can_resume'] if j['status'] in ('failed','cancelled') else False) for j in jobs])
+            research_available=bool(os.environ.get('TAVILY_API_KEY','').strip()), documents=library(conn()), defaults=DEFAULTS,providers=providers(), worker_online=worker_online(), configured=bool(os.environ.get('OPENROUTER_API_KEY','').strip()), jobs=[dict(id=j['id'],status=j['status'],step=j['step'],created_at=j['created_at'],published_at=j['published_at'],error=j['error'],title=json.loads(j['config'])['title'],version=json.loads(j['config'])['version'],parent_id=j['parent_id'],can_resume=recovery_info(conn(),j)['can_resume'] if j['status'] in ('failed','cancelled') else False) for j in jobs])
 
     @app.get(BASE+'/pricing')
     @login_required(owner=True)
@@ -247,7 +252,7 @@ def register_generator(app, conn, login_required, Error):
             history.append(history_entry(config,created_at,summary))
             from .generation_intent import digest,author_material
             pipeline_version=app.config.get('GENERATOR_PIPELINE_VERSION',2)
-            initial={'revision_history':history,'pipeline_version':pipeline_version}
+            initial={'revision_history':history,'pipeline_version':pipeline_version,'research_policy':2 if pipeline_version==2 else 1}
             if pipeline_version==2:
                 original=author_material(config)
                 initial.update(prompt_policy_version=2,original_brief=config['topic'],author_original=original,author_source_hash=digest(original))
@@ -255,6 +260,13 @@ def register_generator(app, conn, login_required, Error):
             conn().execute('INSERT INTO generator_jobs(id,config,status,step,state,created_at,updated_at,parent_id,message) VALUES(?,?,?,?,?,?,?,?,?)',(job_id,json.dumps(config,ensure_ascii=False),'queued','collect',state,created_at,created_at,parent,'Queued for document generation.'))
             from .generator_library import attach_new
             document_id,version_id=attach_new(conn(),job_id,config,created_at,parent)
+            from .research_store import ensure_budget,summary
+            ensure_budget(conn(),document_id,config['web_budget_usd'])
+            shared=summary(conn(),document_id)['limit']
+            if shared!=config['web_budget_usd']:
+                config['web_budget_usd']=shared
+                conn().execute('UPDATE generator_jobs SET config=? WHERE id=?',(json.dumps(config,ensure_ascii=False),job_id))
+                conn().execute('UPDATE generator_versions SET config=? WHERE id=?',(json.dumps(config,ensure_ascii=False),version_id))
         return jsonify(id=job_id,version=config['version'],document_id=document_id,version_id=version_id),202
 
     @app.get(BASE+'/jobs/<job_id>')
@@ -278,7 +290,10 @@ def register_generator(app, conn, login_required, Error):
         chapter_count=len(state.get('document',{}).get('chapters') or state.get('outline',{}).get('chapters') or [])
         from .generation_diagnostics import failure_details
         failure=failure_details(row,state,calls)
-        return jsonify(failure_details=failure,chapter_count=chapter_count or None,pipeline_version=state.get('pipeline_version',1),document_intent=json.loads(row['config']).get('document_intent','research_report'),publication_quality=state.get('publication_quality'),intent_audits=state.get('intent_audits',[]),quality_errors=state.get('quality_errors',[]),step_progress=json.loads(row['work_progress']),recovery=recovery_info(conn(),row),server_time=time.time(),wait_state=waiting,batch_wait=batch,billing=breakdown,web_budget=web_budget,source_metrics=metrics,**{k:row[k] for k in ('id','status','step','error','created_at','published_at','parent_id','message','updated_at','document_id','version_id')},config={**DEFAULTS,**{'summary_service':'default','draft_service':'default','polish_service':'default'},**json.loads(row['config'])},events=json.loads(row['events']),worker_online=worker_online(),warnings=json.loads(row['state']).get('warnings',[]),cost=conn().execute('SELECT sum(cost) FROM generator_calls WHERE job_id=? AND cost_known=1',(job_id,)).fetchone()[0],unreported_calls=conn().execute("SELECT count(*) FROM generator_calls WHERE job_id=? AND status='complete' AND cost_known=0",(job_id,)).fetchone()[0])
+        from .research_store import summary as research_summary
+        from .research_workflow import report as research_report
+        research=research_report(state,research_summary(conn(),row['document_id']))
+        return jsonify(research=research,operation=state.get('operation','generation'),failure_details=failure,chapter_count=chapter_count or None,pipeline_version=state.get('pipeline_version',1),document_intent=json.loads(row['config']).get('document_intent','research_report'),publication_quality=state.get('publication_quality'),intent_audits=state.get('intent_audits',[]),quality_errors=state.get('quality_errors',[]),step_progress=json.loads(row['work_progress']),recovery=recovery_info(conn(),row),server_time=time.time(),wait_state=waiting,batch_wait=batch,billing=breakdown,web_budget=web_budget,source_metrics=metrics,**{k:row[k] for k in ('id','status','step','error','created_at','published_at','parent_id','message','updated_at','document_id','version_id')},config={**DEFAULTS,**{'summary_service':'default','draft_service':'default','polish_service':'default'},**json.loads(row['config'])},events=json.loads(row['events']),worker_online=worker_online(),warnings=json.loads(row['state']).get('warnings',[]),cost=conn().execute('SELECT sum(cost) FROM generator_calls WHERE job_id=? AND cost_known=1',(job_id,)).fetchone()[0],unreported_calls=conn().execute("SELECT count(*) FROM generator_calls WHERE job_id=? AND status='complete' AND cost_known=0",(job_id,)).fetchone()[0])
 
     @app.post(BASE+'/jobs/<job_id>/resume')
     @login_required(owner=True)

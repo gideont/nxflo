@@ -26,7 +26,7 @@ class WebBudgetTests(unittest.TestCase):
     def test_full_context_ceiling_fits_thirty_cents(self):
         plan=web_plan(CATALOG,.30);self.assertEqual(plan['reserved_usd'],.291335);self.assertLessEqual(plan['reserved_usd'],.30)
         self.assertEqual(plan['engine'],'parallel');self.assertEqual(plan['mode'],'turbo')
-        for budget in (0,.01,.29,.31,float('nan')):
+        for budget in (0,.01,.29,1000.01,float('nan')):
             with self.assertRaises(GenerationError):web_plan(CATALOG,budget)
     def test_unverifiable_prices_and_bigger_context_fail_closed(self):
         for change in ({'context_length':2000000},{'pricing':{'prompt':'0.00001','completion':'0.00001'}},{'pricing':{}},{'context_length':None}):

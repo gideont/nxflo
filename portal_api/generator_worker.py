@@ -80,9 +80,10 @@ class Engine:
         sources=[{'id':'B1','label':'User-provided brief and research (not independently verified)','text':c['topic']}]
         sources +=[{'id':'D'+str(i+1),'label':doc['name']+' (uploaded source)','text':doc['text']} for i,doc in enumerate(c['documents'])]
         budget=sum(len(source['text']) for source in sources);urls=list(links['references']);seen=set(urls);collected=0
-        web_step=1 if c['web_search'] and c.get('web_budget_usd',0.30)>0 else 0
+        legacy_web=c['web_search'] and s.get('research_policy',1)<2
+        web_step=1 if legacy_web and c.get('web_budget_usd',0.30)>0 else 0
         self.source_progress(max(1,len(urls)+len(links['youtube'])+web_step),0)
-        if c['web_search'] and c.get('web_budget_usd',0.30)>0:
+        if legacy_web and c.get('web_budget_usd',0.30)>0:
             try:
                 self.message('Budgeted research: one Parallel Turbo search with Luna Flex notes; US$'+str(c.get('web_budget_usd',0.30))+' maximum.')
                 research=self.models.many('summary',['Research this topic and return verifiable facts, dates and source links. Topic: '+(c['title'] or c['topic'][:5000])+'\nResearch questions: '+c['questions']],'web-research',structured=False,web=True)[0]

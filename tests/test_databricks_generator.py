@@ -27,7 +27,7 @@ class DatabricksTests(unittest.TestCase):
         self.assertEqual(response.status_code,202,response.json);return response.json['id']
     def test_databricks_can_start_without_openrouter_and_never_exposes_secret(self):
         job=self.start();saved=self.owner.get(BASE+'/jobs/'+job).json['config']
-        self.assertEqual(saved['provider'],'databricks');self.assertFalse(saved['web_search'])
+        self.assertEqual(saved['provider'],'databricks');self.assertTrue(saved['web_search']);self.assertEqual(saved['web_budget_usd'],5)
         data=self.owner.get(BASE).json;self.assertTrue(data['providers']['databricks']['configured']);self.assertFalse(data['providers']['openrouter']['configured'])
         self.assertNotIn(ENV['DATABRICKS_AI_KEY'],json.dumps(data));self.assertNotIn(ENV['DATABRICKS_BASE_URL'],json.dumps(data))
     def test_batch_and_arbitrary_databricks_models_are_rejected(self):
@@ -68,7 +68,7 @@ class DatabricksTests(unittest.TestCase):
         self.assertNotIn('PRIVATE_UPLOAD',json.dumps(call.call_args.kwargs['json']));self.assertNotIn('service_tier',call.call_args.kwargs['json'])
 
     def test_complete_graph_uses_databricks_for_all_ai_stages_and_exports_pdf(self):
-        self.config.update(charts=False,review_passes=1);job=self.start();calls=[]
+        self.config.update(charts=False,review_passes=1,web_search=False);job=self.start();calls=[]
         def transport(connection,job_id,label,timeout,function,args,**kwargs):
             method,url,body,headers,provider=args;self.assertEqual(provider,'Databricks');self.assertEqual(method,'POST');self.assertEqual(url,ENV['DATABRICKS_BASE_URL']+'/chat/completions');calls.append(body)
             prompt=body['messages'][-1]['content']

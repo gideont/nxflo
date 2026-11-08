@@ -5,11 +5,11 @@
   const form = $('generator-form');
   const steps = [['collect','Collect sources'],['summarize','Summarize evidence'],['outline','Plan chapters & contents'],['draft','Draft chapters'],['review','Review evidence & gaps'],['rewrite','Refine the draft'],['polish','Final editorial polish'],['charts','Draw charts & graphs'],['assemble','Assemble the document'],['html_review','Preview HTML & continue'],['pdf','Export PDF'],['deliver','Ready for your review']];
   let csrf='', revision=0, config=null, configured=false, loaded=false, loading=false, active=null, pollTimer, saveTimer, saving=null, busy=false, uploading=0, parentId=null, defaults=null, watched=null, dirty=false;
-  const checks=['toc','charts','images','graphics','advanced_models','version_override'];
-  const numeric=['pages','review_passes','cost_pages'];
+  const checks=['toc','charts','images','graphics','advanced_models','version_override','web_search'];
+  const numeric=['pages','review_passes','cost_pages','web_budget_usd'];
   const defaultModels={summary_model:'openai/gpt-6-luna',draft_model:'openai/gpt-6-luna',polish_model:'openai/gpt-6-luna'};
   const aiFields=['company','title'];
-  let focusedJob=null,libraryDocuments=[],expandedDocumentId=null,failureKey='';
+  let focusedJob=null,libraryDocuments=[],expandedDocumentId=null,failureKey='',researchKey='',researchAvailable=false,verificationStarting=false,researchDocumentId=null;
   let pricing=null,observedSources=null,matrixSignature='';
   let timedJob=null,timingReceived=0;
   let providerSettings={openrouter:{configured:false},databricks:{configured:false,model:''}};
@@ -26,7 +26,7 @@
   }
   const json = (method, body) => ({method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
   function values() {
-    const result={...config,revision_parent:parentId || '',youtube:'',documents:[],questions:'',web_search:false,web_budget_usd:0};
+    const result={...config,revision_parent:parentId || '',youtube:'',documents:[],questions:''};
     for(const [key,value] of new FormData(form)) if(!assetKeys.includes(key)) result[key]=numeric.includes(key)?Number(value):value;
     for(const key of checks) result[key]=form.elements[key].checked;
     if(result.length_mode!=='target' && (!Number.isInteger(result.pages) || result.pages<1))result.pages=12;
@@ -34,7 +34,7 @@
     for(const [key,model] of Object.entries(defaultModels))result[key]=String(result[key] || model);
     for(const role of ['summary','draft','polish'])if(result[role+'_model']!=='openai/gpt-6-luna')result[role+'_service']='default';
     if(!result.version_override && !parentId)result.version='1.0';
-    if(result.provider==='databricks'){result.web_search=false;result.advanced_models=false;}
+    if(result.provider==='databricks')result.advanced_models=false;
     return result;
   }
   function modelChoices() {
@@ -79,6 +79,7 @@
   function ready() {
     const databricks=form.elements.provider.value==='databricks';
     configured=!!providerSettings[form.elements.provider.value]?.configured;
+    $('generator-research-availability').textContent=(researchAvailable?'Tavily configured. ':'Tavily unavailable on the running server. ')+(databricks?'Research uses '+(form.elements.databricks_model.value || providerSettings.databricks.model || 'the selected Databricks model')+'.':'Select Databricks for independent verification; no alternate AI model will be used.');
     $('generator-databricks-model').hidden=!databricks;$('generator-openrouter-model').hidden=databricks;$('generator-advanced-toggle').hidden=databricks;
     form.elements.databricks_model.required=databricks;form.elements.databricks_model.disabled=!databricks;
     if(databricks)form.elements.advanced_models.checked=false;
@@ -138,15 +139,15 @@
       return row;
     }));
     const observed=observedSources?.key===sourceSignature(current)?observedSources.stats:null;
-    const result=window.NxfloCosts.estimate(current,pricing,undefined,observed);
+    const result=window.NxfloCosts.estimate({...current,web_search:false,research_separate:current.web_search},pricing,undefined,observed);
     $('generator-cost-total').textContent=result?'≈ '+usd(result.total):'Unavailable';
     $('generator-pass-costs').replaceChildren();$('generator-cost-breakdown').replaceChildren();
     if(!result){$('generator-cost-assumptions').textContent=(proxy?'No published reference rate matches this Databricks model. ':'')+'Choose models with published token prices and a valid page assumption to calculate an estimate. Unknown model prices are never treated as zero.';return;}
     $('generator-cost-assumptions').textContent=`${result.pages} planning pages · approximately ${result.manuscriptTokens.toLocaleString()} draft tokens · ${result.sourceTokens.toLocaleString()} source tokens · ${result.passes} full review/rewrite ${result.passes===1?'cycle':'cycles'}. ${result.observed?"Uses collected source text and actual summary chunk counts.":"Source estimates include pasted/uploaded text, 6,000 tokens per video or reference link, and search results."} ${proxy?'':'Research fees and Luna Flex notes are included when selected. The US$0.30 limit applies to web research only.'}${current.revision_parent?' Revision estimates also include the previous manuscript at the planned length and your feedback.':''}`;
     if(proxy)$('generator-cost-assumptions').textContent+=' Same-model reference rates are assumed comparable across hosts for this planning estimate. Actual Databricks billing may differ; no Flex discount or paid web discovery is assumed.';
-    const baseline=window.NxfloCosts.estimate(current,pricing,3,observed);
+    const baseline=window.NxfloCosts.estimate({...current,web_search:false,research_separate:current.web_search},pricing,3,observed);
     $('generator-pass-costs').replaceChildren(...[1,2,3,4].map(passes=>{
-      const comparison=window.NxfloCosts.estimate(current,pricing,passes,observed),card=document.createElement('div');
+      const comparison=window.NxfloCosts.estimate({...current,web_search:false,research_separate:current.web_search},pricing,passes,observed),card=document.createElement('div');
       if(passes===current.review_passes)card.className='is-selected';
       const label=document.createElement('span'),value=document.createElement('strong'),difference=document.createElement('small');
       label.textContent=passes+' '+(passes===1?'pass':'passes');value.textContent=usd(comparison.total);
@@ -255,6 +256,7 @@
     }
     if(version.can_resume)actions.append(button('Resume',()=>resume(version.job_id).catch(showError)));
     actions.append(button('View progress',()=>openProgress(version.job_id).catch(showError)));
+    if(version.pdf_job_id)actions.append(button('Research & verify claims',()=>verifyClaims(version.pdf_job_id).catch(showError)));
     if(version.pdf_job_id)actions.append(button('Revise document',()=>loadVersion(version.pdf_job_id).catch(showError)));
     actions.append(button('Use configuration',()=>loadVersion(version.job_id,true).catch(showError)));
     return actions;
@@ -320,7 +322,7 @@
     if(loading || !csrf)return;
     loading=true;
     try {
-      const data=await request();providerSettings=data.providers || {openrouter:{configured:data.configured},databricks:{configured:false,model:''}};configured=data.configured;defaults=data.defaults || defaults;
+      const data=await request();researchAvailable=!!data.research_available;providerSettings=data.providers || {openrouter:{configured:data.configured},databricks:{configured:false,model:''}};configured=data.configured;defaults=data.defaults || defaults;
       if(!loaded) {revision=data.revision;loaded=true;populate(data.config);$('generator-save-state').textContent=revision?'Saved configuration':'New configuration';}
       $('generator-key-status').textContent=(providerSettings.databricks.configured?'Databricks configured. ':'Databricks not configured. ')+(providerSettings.openrouter.configured?'OpenRouter configured. ':'OpenRouter not configured. ')+(data.worker_online?'Generation worker online.':'Generation worker offline.');
       renderLibrary(data.documents || []);
@@ -410,6 +412,36 @@
     $('generator-failure-chapters').replaceChildren(...groups);$('generator-failure-original').textContent=failure.error || job.error || '';
     $('generator-failure-action').textContent=failure.next_action;$('generator-failure-more').open=false;
   }
+  function renderResearch(job) {
+    const panel=$('generator-research'),research=job.research || {};researchDocumentId=job.document_id || null;
+    panel.hidden=!job.id || (!research.policy && !(research.total_claims>0));if(panel.hidden)return;
+    const counts=research.counts || {},budget=research.budget || {};
+    $('generator-research-summary').textContent=(research.model || job.config?.databricks_model || 'Selected Databricks model')+' · '+(research.phase || research.status || 'Pending')+' · '+(counts.supported || 0)+' supported · '+(counts.corrected || 0)+' corrected · '+(counts.contradicted || 0)+' contradicted · '+(counts.unresolved || 0)+' unresolved'+(research.message?' · '+research.message:'');
+    $('generator-research-cost').textContent='Shared allowance '+usd(budget.limit || 0)+' · estimated use '+usd(budget.estimated_spent || 0)+' · reserved '+usd(budget.reserved || 0)+' · remaining '+usd(budget.remaining || 0)+' · Tavily '+(budget.tavily_credits || 0)+' credits (free/included credits may apply).';
+    const extra=research.estimated_additional;
+    $('generator-research-estimate').textContent=(budget.cost_note || '')+(extra?' '+(extra.low==null?'Additional cost unavailable.':(extra.high==null?'Minimum additional allowance: '+usd(extra.low)+'.':('Estimated additional allowance: '+usd(extra.low)+'–'+usd(extra.high)+'.')))+' '+extra.basis:'');
+    const input=$('generator-research-new-limit');if(document.activeElement!==input)input.value=Number(budget.limit || 5).toFixed(2);
+    $('generator-research-increase').disabled=['queued','running'].includes(job.status) || !researchDocumentId;
+    const key=JSON.stringify([research.claims,research.corrections]);if(key===researchKey)return;researchKey=key;
+    $('generator-research-claims').replaceChildren(...(research.claims || []).map(claim=>{
+      const li=document.createElement('li'),title=document.createElement('strong'),reason=document.createElement('p');title.textContent=claim.status+' · '+claim.text;reason.textContent=claim.reason || '';li.append(title,reason);
+      for(const proof of claim.evidence || []){let url;try{url=new URL(proof.url);}catch{continue;}if(url.protocol!=='https:')continue;
+        const link=document.createElement('a'),quote=document.createElement('blockquote');link.href=url.href;link.target='_blank';link.rel='noopener noreferrer';link.textContent=url.hostname+' · '+(proof.authority || 'source');quote.textContent=proof.quote;li.append(link,quote);}
+      return li;
+    }));
+    const corrections=research.corrections || [];$('generator-research-corrections').hidden=!corrections.length;
+    $('generator-research-correction-list').replaceChildren(...corrections.map(correction=>{const box=document.createElement('div'),reason=document.createElement('strong'),before=document.createElement('p'),after=document.createElement('p');reason.textContent=correction.reason || correction.block;before.textContent='Previous: '+correction.before;after.textContent='Corrected: '+correction.after;box.append(reason,before,after);return box;}));
+  }
+  async function verifyClaims(id) {
+    if(verificationStarting || active)return;verificationStarting=true;$('generator-verify-current').disabled=true;
+    try{const result=await request('/jobs/'+id+'/verify',json('POST',{}));history.replaceState(null,'','admin.html?job='+result.id);await watch(result.id);await load(true);$('generator-workflow').scrollIntoView({block:'start'});message(result.reused?'Opened the saved verification operation.':'Verification revision '+result.version+' queued. Saved chapters and previous downloads are preserved.');}
+    finally{verificationStarting=false;$('generator-verify-current').disabled=!!active;}
+  }
+  $('generator-verify-current').addEventListener('click',()=>{if(watched)verifyClaims(watched).catch(showError);});
+  $('generator-research-increase').addEventListener('click',async()=>{
+    if(!researchDocumentId)return;const button=$('generator-research-increase');button.disabled=true;
+    try{await request('/documents/'+researchDocumentId+'/research-budget',json('POST',{limit_usd:Number($('generator-research-new-limit').value)}));if(watched)await watch(watched);message('Shared allowance updated. Choose Research & verify claims to continue unresolved checks.');}catch(error){showError(error);}finally{button.disabled=false;}
+  });
   function workflow(job={status:'idle',step:'',events:[],message:'Start generation to follow the actual workflow.'}) {
     timedJob=job;timingReceived=performance.now();renderTiming();
     renderChef(job);
@@ -458,6 +490,7 @@
     $('generator-html-status').hidden=!reviewing;
     if(reviewing){reviewJump.href=endpoint+'/jobs/'+job.id+'/download/html?view=1';}
     else $('generator-html-status').textContent='';
+    renderResearch(job);
     const publication=job.publication_quality,publicationPanel=$('generator-publication');publicationPanel.hidden=!publication?.outcome;
     if(publication?.outcome){
       publicationPanel.dataset.outcome=publication.outcome;
@@ -468,7 +501,7 @@
       publicationPanel.querySelector('details').hidden=!issues.length;
     }
     $('generator-result').querySelector('p').textContent=publication?.outcome==='WARNING'?'Your complete draft is ready with verification warnings. Review the marked statements in the HTML or PDF before distribution.':'Your document is ready. Review the PDF, then choose Revise this document to submit feedback and generate the next version.';
-    $('generator-result').hidden=!done;$('generator-cancel').hidden=!running;
+    $('generator-result').hidden=!done;$('generator-verify-current').disabled=verificationStarting || running;$('generator-cancel').hidden=!running;
     const recovery=job.recovery || {},retryWait=recovery.retry_at?Math.max(0,Math.ceil(recovery.retry_at-(job.server_time || Date.now()/1000))):0;
     resumeButton.hidden=!recovery.can_resume || (running && (!job.batch_wait || recovery.retry_at));
     resumeButton.textContent=running?'Check batch now':'Resume';
@@ -484,7 +517,7 @@
     $('generator-recovery-status').textContent=recovery.blocked_reason || (recovery.retry_at?'Automatic recovery · attempt '+recovery.attempts+' of 3 · '+(retryWait?'retry in '+retryWait+'s.':'retry due now.')+' Completed stages and saved responses will be reused.':recovery.can_resume?'Resume continues this version from saved progress. Completed work and existing Batch requests are reused.':'');
     $('generator-cost-actual').textContent=job.id?(job.config?.provider==='databricks'?'Databricks usage is billed in your workspace; USD charges are not returned by this endpoint.':job.cost==null?'Model cost: not yet reported by OpenRouter.':'Reported usage cost so far (OpenRouter + BYOK): '+usd(Number(job.cost)))+(job.unreported_calls?' · Some completed charges have not been reported.':'')+(job.warnings?.length?' · '+job.warnings.length+' review/source warnings.':''):'';
     const budget=job.web_budget;
-    $('generator-web-spend').hidden=!budget || (!budget.reported && !budget.reserved && !budget.historical);
+    $('generator-web-spend').hidden=!!job.research?.policy || !budget || (!budget.reported && !budget.reserved && !budget.historical);
     $('generator-web-spend').textContent=budget?'Web research: '+usd(budget.reported)+' reported · '+usd(budget.limit)+' limit for new research'+(budget.historical?' · Earlier native-search charges predate this limit.':budget.reserved?' · '+usd(budget.reserved)+' reserved as a conservative maximum; this is not a charge.':''):'';
     $('generator-billing-details').hidden=!job.billing?.length;
     $('generator-billing-rows').replaceChildren(...(job.billing || []).map(row=>{const p=document.createElement('p');p.textContent=job.config?.provider==='databricks'?row.stage+': Databricks workspace billing'+(row.input_tokens!=null?' · '+row.input_tokens+' input tokens · '+row.output_tokens+' output tokens':''):row.stage+': OpenRouter '+(row.credit_cost==null?'not reported':usd(row.credit_cost))+' · BYOK provider '+(row.is_byok===false?'not applicable':row.provider_cost==null?'not reported':usd(row.provider_cost))+' · Total '+(row.total==null?'not yet verified':usd(row.total))+(row.generation_id?' · Billing reference '+row.generation_id:'');p.style.overflowWrap='anywhere';return p;}));
@@ -612,7 +645,7 @@
   $('generator-library-unfinished').addEventListener('change',()=>renderLibrary());
   window.addEventListener('nxflo-admin-tab',event=>{if(event.detail==='generator-tab')load();});
   window.addEventListener('nxflo-owner-session',event=>{csrf=event.detail.csrf;});
-  window.addEventListener('nxflo-session-ended',()=>{csrf='';loaded=false;config=null;active=null;watched=null;timedJob=null;renderTiming();$('generator-editor').hidden=false;$('generator-logo-preview').querySelector('img').removeAttribute('src');$('generator-logo-preview').hidden=true;$('generator-logo-empty').hidden=false;$('generator-logo-help').hidden=false;logoDrop.classList.remove('has-logo');logoDrop.setAttribute('aria-label','Upload company logo');clearTimeout(pollTimer);clearTimeout(saveTimer);form.reset();libraryDocuments=[];expandedDocumentId=null;$('generator-library-search').value='';$('generator-library-unfinished').checked=false;$('generator-library-count').textContent='';$('generator-jobs').replaceChildren();$('generator-review-actions').hidden=true;$('generator-review-jump').hidden=true;$('generator-html-status').hidden=true;$('generator-failure').hidden=true;$('generator-publication').hidden=true;failureKey='';});
+  window.addEventListener('nxflo-session-ended',()=>{csrf='';loaded=false;config=null;active=null;watched=null;timedJob=null;renderTiming();$('generator-editor').hidden=false;$('generator-logo-preview').querySelector('img').removeAttribute('src');$('generator-logo-preview').hidden=true;$('generator-logo-empty').hidden=false;$('generator-logo-help').hidden=false;logoDrop.classList.remove('has-logo');logoDrop.setAttribute('aria-label','Upload company logo');clearTimeout(pollTimer);clearTimeout(saveTimer);form.reset();libraryDocuments=[];expandedDocumentId=null;$('generator-library-search').value='';$('generator-library-unfinished').checked=false;$('generator-library-count').textContent='';$('generator-jobs').replaceChildren();$('generator-review-actions').hidden=true;$('generator-review-jump').hidden=true;$('generator-html-status').hidden=true;$('generator-failure').hidden=true;$('generator-publication').hidden=true;$('generator-research').hidden=true;researchKey='';researchDocumentId=null;failureKey='';});
   window.addEventListener('beforeunload',event=>{if(dirty || saving || uploading){event.preventDefault();event.returnValue='';}});
   workflow();
 

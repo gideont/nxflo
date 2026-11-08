@@ -54,7 +54,7 @@
     add('Rewrite',ids[1],Math.ceil(manuscript/chapters)+notes+authorContext+2200,Math.ceil(manuscript/chapters),passes*chapters,config.draft_service);
     add('Final polish',ids[2],Math.ceil(manuscript/chapters)+authorContext+1000+feedback,Math.ceil(manuscript/chapters),chapters,config.polish_service);
     if(intentAware){
-      add('Publication quality gate',ids[2],manuscript+authorContext+(financial?16000:2000),3000,Math.max(1,Math.ceil(chapters*3/24)),config.polish_service);
+      if(!config.research_separate)add('Publication quality gate',ids[2],manuscript+authorContext+(financial?16000:2000),3000,Math.max(1,Math.ceil(chapters*3/24)),config.polish_service);
       add('Fidelity repair allowance',ids[1],Math.ceil(manuscript/chapters)+notes+authorContext+2200,Math.ceil(manuscript/chapters),(passes+2)*chapters,config.draft_service);
     }
     if(web){

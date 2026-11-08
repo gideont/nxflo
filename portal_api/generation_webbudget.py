@@ -2,7 +2,7 @@
 from decimal import Decimal, ROUND_CEILING
 from .generation_errors import GenerationError
 
-MAX_WEB_BUDGET=0.30
+MAX_WEB_BUDGET=1000
 WEB_MODEL='openai/gpt-6-luna'
 SEARCH_FEE=Decimal('0.001')  # Parallel Turbo, one request, <= 5 results.
 MAX_INPUT_PRICE=Decimal('0.25')  # USD / million; includes published cache-write tiers.
@@ -14,7 +14,7 @@ POLICY_VERSION=1
 def web_plan(catalog,budget):
     try:limit=Decimal(str(budget))
     except ArithmeticError:raise GenerationError('Invalid web research spending limit.')
-    if not limit.is_finite() or not 0<=limit<=Decimal(str(MAX_WEB_BUDGET)):raise GenerationError('Web research limit must be between US$0 and US$0.30.')
+    if not limit.is_finite() or not 0<=limit<=Decimal(str(MAX_WEB_BUDGET)):raise GenerationError('Research allowance must be between US$0 and US$1,000.')
     if limit==0:raise GenerationError('Web research is disabled by the US$0 spending limit.')
     row=next((item for item in catalog.get('data',[]) if item.get('id')==WEB_MODEL),None)
     if not row or type(row.get('context_length')) is not int or not 0<row['context_length']<=10000000:raise GenerationError('Web research skipped: current model context limits could not be verified.')

@@ -214,6 +214,8 @@ def fidelity_issues(document,contract,plans=None):
     if contract['mode']=='content_preserving_rewrite':
         headings=[entry['title'] for entry in contract.get('narrative_structure',[]) ] if 'narrative_structure' in contract else [entry['title'] for entry in contract['structure'] if entry['level']==(2 if any(e['level']==2 for e in contract['structure']) else 1)]
         if headings:
+            corrections={item['before']:item['after'] for item in document.get('factual_heading_corrections',[]) if isinstance(item,dict) and isinstance(item.get('before'),str) and isinstance(item.get('after'),str)}
+            headings=[corrections.get(heading,heading) for heading in headings]
             actual=' '.join(ch.get('title','') for ch in chapters).casefold()
             matches=[locate(re.sub(r'^\d+[. ]*','',heading),actual) for heading in headings if heading and len(heading)>12]
             positions=[match[0] if match else -1 for match in matches]

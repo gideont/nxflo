@@ -68,6 +68,29 @@ def decide(state,review,blocks):
     findings,bound=review_findings(review,state,blocks)
     verified=next((c for c in review['checks'] if c['criterion']=='accuracy'),{}).get('passed') is True
     local=verification_findings(state)
+    research=state.get('research',{})
+    verified_blocks=set()
+    if state.get('research_policy')==2 and research:
+        from .research_workflow import blocks as manuscript_blocks
+        content=manuscript_blocks(state)
+        sources={source['id']:source for source in state['sources']}
+        for key,block in content.items():
+            related=[claim for claim in research.get('claims',[]) if key in claim.get('blocks',[])]
+            good=bool(related) and research.get('block_hashes',{}).get(key)==digest(block['text'])
+            for claim in related:
+                good=good and claim.get('status') in ('supported','corrected') and bool(claim.get('evidence'))
+                for proof in claim.get('evidence',[]):
+                    source=sources.get(proof.get('source_id'))
+                    good=good and bool(source and source.get('role')=='external' and proof.get('source_hash')==digest(source['text']) and proof.get('quote') in source['text'])
+            if good:verified_blocks.add(key)
+        for claim in research.get('claims',[]):
+            if claim.get('status') not in ('supported','corrected'):
+                findings.append({'code':'claim:'+claim['id'],'kind':'verification','reason':claim.get('reason','Verification incomplete.'),'blocks':claim.get('blocks',[]),'claim':claim['text']})
+        if research.get('status')!='complete':
+            findings.append({'code':'research_incomplete','kind':'verification','reason':research.get('message','Independent research is incomplete.'),'blocks':[]})
+        # A verified claim ledger cannot clear unrelated or changed text.
+        local=[finding for finding in local if not finding.get('blocks') or not set(finding['blocks'])<=verified_blocks]
+
     # Successful independent review can confirm sourced regulatory statements;
     # author-only assertions remain unverified even if a reviewer approves them.
     for finding in local:
