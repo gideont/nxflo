@@ -325,6 +325,12 @@ def register_generator(app, conn, login_required, Error):
         directory=Path(app.config['DATABASE']).parent/'generated'
         path=(directory/row['id']/('document.'+kind)).resolve()
         if not path.is_relative_to(directory.resolve()) or not path.is_file(): raise Error('Document file not found',404)
+        if kind=='html' and request.args.get('view')=='1':
+            from .generation_page_preview import paginated_preview
+            from flask import make_response
+            response=make_response(paginated_preview(path.read_text()))
+            response.headers['Content-Security-Policy']="default-src 'none'; script-src 'self'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+            return response
         response=send_file(path,as_attachment=request.args.get('view')!='1',download_name='nxflo-'+row['id'][:8]+'.'+kind,mimetype='application/pdf' if kind=='pdf' else 'text/html')
         response.headers['Content-Security-Policy']="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
         return response

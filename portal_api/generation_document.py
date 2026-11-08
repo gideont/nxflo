@@ -56,7 +56,8 @@ def assemble(config,state):
     website=config.get('website','')
     prepared=('<p class="prepared-by"><strong>Prepared by</strong><br>'+e(team['name'])+('<br><a href="mailto:'+e(email)+'">'+e(email)+'</a>' if email else '')+'</p>') if team else ''
     company_link='<p><a href="'+e(website)+'">'+e(website)+'</a></p>' if website else ''
-    cover='<div class="cover-brand">'+logo+'<p class="cover-company">'+e(company)+'</p></div><div class="cover-body"><p class="eyebrow">'+e(config['report_type'])+'</p><h1>'+e(title)+'</h1><span class="cover-rule"></span></div><div class="cover-details"><dl class="cover-meta"><div><dt>Release date</dt><dd>'+e(date)+'</dd></div><div><dt>Document version</dt><dd>'+e(config['version'] or '1.0')+'</dd></div></dl>'+prepared+'<div class="cover-website">'+company_link+'</div></div>'
+    from .generation_cover import cover_markup
+    cover=cover_markup(config,title,company,date,prepared)
     toc='<nav class="contents" aria-label="Table of contents"><p class="eyebrow">In this document</p><h2>Contents</h2><ol>'+''.join('<li><a href="#chapter-'+str(i)+'">'+e(ch['title'])+'</a></li>' for i,ch in enumerate(state['document']['chapters']))+'<li><a href="#sources">Sources</a></li><li><a href="#editorial-notes">Source and editorial notes</a></li><li><a href="#document-control">Document control and revision history</a></li></ol></nav>' if config['toc'] else ''
     body=''
     for i,ch in enumerate(state['document']['chapters']):
@@ -88,7 +89,8 @@ def assemble(config,state):
     if state.get('pipeline_version')==2:
         body=body.replace('Prepared with AI assistance. Review facts, quotations and recommendations before distribution. Source availability and editorial limitations are recorded below.', 'Prepared with AI assistance from the author’s original material. Empirical evidence is cited separately; illustrative financial scenarios are explicitly labeled and calculated from their stated assumptions.')
     from .generation_layout import REPORT_CSS
-    css=REPORT_CSS
+    from .generation_cover import COVER_CSS
+    css=REPORT_CSS+COVER_CSS
     if 'publication_assets' in state:
         from .generation_publication import ASSET_CSS
         css+=ASSET_CSS

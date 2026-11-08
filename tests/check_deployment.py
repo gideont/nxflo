@@ -34,7 +34,7 @@ def check(url, alias_header=False):
         expected = render_page((ROOT / name).read_text(), name, ROOT).encode()
         assert content == expected, f"Deployment differs from source: {name}"
         print(f"{base}{path}: 200, matches current source")
-    for name in ("images/beaver-architect.webp", "styles.css", "script.js", "tools/admin.js", "tools/article-generator.js", "tools/generator-timing.js", "tools/generator-cost.js", "tools/generator-sources.js", "tools/pdf-combiner.js", "tools/csv-viewer.js", "tools/csv-viewer.css", "tools/csv-viewer-LICENSES.txt", "tools/vendor/pdf-lib-1.17.1.min.js", "tools/vendor/PDF-LIB-LICENSE.md"):
+    for name in ("images/beaver-architect.webp", "styles.css", "script.js", "tools/admin.js", "tools/article-generator.js", "tools/document-preview.js", "tools/vendor/paged-0.4.3.min.js", "tools/vendor/PAGED-LICENSE.txt", "tools/generator-timing.js", "tools/generator-cost.js", "tools/generator-sources.js", "tools/pdf-combiner.js", "tools/csv-viewer.js", "tools/csv-viewer.css", "tools/csv-viewer-LICENSES.txt", "tools/vendor/pdf-lib-1.17.1.min.js", "tools/vendor/PDF-LIB-LICENSE.md"):
         status, _, content = fetch("/" + name)
         assert status == 200 and content == (ROOT / name).read_bytes(), f"Asset differs from source: {name}"
         print(f"{name}: 200, matches current source")

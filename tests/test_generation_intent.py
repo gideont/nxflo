@@ -55,6 +55,22 @@ class IntentPipelineTests(unittest.TestCase):
         self.assertIn('Worked investment scenarios',text);self.assertIn('hypothetical',text.lower());self.assertIn('NPV',text)
         self.assertEqual(FixtureModels.requests,before,'PDF approval must not repeat paid writing requests')
 
+    def test_page_preview_keeps_approved_source_private_and_unchanged(self):
+        from portal_api.generation_intent import digest
+        row=self.run_to_html();self.assertEqual(row['status'],'awaiting_html_review',row['error'])
+        url=BASE+'/jobs/'+self.id+'/download/html'
+        raw=self.owner.get(url);before=raw.data
+        preview=self.owner.get(url+'?view=1')
+        self.assertEqual(preview.status_code,200)
+        self.assertIn(b'/tools/document-preview.js',preview.data)
+        self.assertIn(b'/tools/vendor/paged-0.4.3.min.js',preview.data)
+        self.assertIn("script-src 'self'",preview.headers['Content-Security-Policy'])
+        self.assertNotIn("script-src 'unsafe-inline'",preview.headers['Content-Security-Policy'])
+        self.assertNotIn(b'/tools/document-preview.js',before)
+        self.assertEqual(self.owner.get(url).data,before)
+        state=json.loads(self.row()['state']);self.assertEqual(state['publication_quality']['html_hash'],digest(before.decode()))
+        self.assertEqual(self.app.test_client().get(url+'?view=1').status_code,401)
+
     def test_material_drift_is_rejected_before_a_preview_exists(self):
         FixtureModels.bad_stage='draft';row=self.run_to_html()
         self.assertEqual(row['status'],'failed');self.assertIn('Intent/provenance gate',row['error'])
