@@ -29,7 +29,7 @@ def blocks(state):
 
 def official(url):
     host=(urlsplit(url).hostname or '').lower()
-    return host.endswith(('.gov','.gov.uk','.gov.au','.gc.ca','.gov.bc.ca','.europa.eu','.canada.ca')) or bool(re.search(r'\.(?:gov|gouv|go)\.[a-z]{2}$',host)) or host in ('canada.ca','vancouver.ca','www.vancouver.ca','vch.ca','www.vch.ca')
+    return host.endswith(('.gov','.gov.uk','.gov.au','.gc.ca','.gov.bc.ca','.europa.eu')) or bool(re.search(r'\.(?:gov|gouv|go)\.[a-z]{2}$',host)) or any(host==domain or host.endswith('.'+domain) for domain in ('canada.ca','vancouver.ca','vch.ca'))
 
 
 def excerpts(text,claims):

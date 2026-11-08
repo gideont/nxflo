@@ -145,6 +145,9 @@ class ResearchTests(unittest.TestCase):
             self.assertEqual(transport.call_count,1)
         self.assertEqual(client.store.budget()['reserved'],.008);engine.db.close()
     def test_invalid_quotes_wrong_scope_and_wrong_dates_never_support_claim(self):
+        from portal_api.research_workflow import official
+        self.assertTrue(official('https://bylaws.vancouver.ca/zoning/zoning-by-law.pdf'))
+        self.assertFalse(official('https://vancouver.ca.example.org/rules'))
         claim={'id':'c','text':'A factual legal claim','kind':'regulatory','blocks':['P0.0']};sources=[{'id':'V1','url':RULE,'text':SOURCE},{'id':'V2','url':GUIDE,'text':SOURCE}]
         good={'id':'c','status':'supported','reason':'Verified','evidence':[{'url':u,'quote':CORRECT,'authority':a,'scope_matches':True,'date_matches':True} for u,a in ((RULE,'primary_rule'),(GUIDE,'official_guidance'))]}
         self.assertEqual(validate_assessments({'claims':[good]},[claim],sources)[0]['status'],'supported')
