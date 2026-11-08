@@ -124,12 +124,12 @@ def validate_publication_review(review,document,contract):
     return failures
 
 
-def publication_fingerprint(state):
+def publication_fingerprint(state,*,verification_policy=None,research_validation=None,research_retrieval=None):
     from .generation_verification import POLICY_VERSION
-    payload={'document':state['document'],'contract':state['author_contract'],'financials':state.get('financials'),'sources':state.get('sources',[]),'criteria':criteria(state['author_contract']),'verification_policy':POLICY_VERSION,'charts':state.get('charts',[])}
+    payload={'document':state['document'],'contract':state['author_contract'],'financials':state.get('financials'),'sources':state.get('sources',[]),'criteria':criteria(state['author_contract']),'verification_policy':POLICY_VERSION if verification_policy is None else verification_policy,'charts':state.get('charts',[])}
     if state.get('research_policy')==2:
         from .research_workflow import VALIDATION_POLICY,RETRIEVAL_POLICY
-        payload.update(research_validation=VALIDATION_POLICY,research_retrieval=RETRIEVAL_POLICY,research_claims=state.get('research',{}).get('claims',[]),research_blocks=state.get('research',{}).get('block_hashes',{}),factual_corrections=state.get('research_corrections',[]),verified_title=state.get('verified_title'))
+        payload.update(research_validation=VALIDATION_POLICY if research_validation is None else research_validation,research_retrieval=RETRIEVAL_POLICY if research_retrieval is None else research_retrieval,research_claims=state.get('research',{}).get('claims',[]),research_blocks=state.get('research',{}).get('block_hashes',{}),factual_corrections=state.get('research_corrections',[]),verified_title=state.get('verified_title'))
     if 'publication_assets' in state:
         payload.update(publication_assets=state['publication_assets'],publication_calculations=state.get('publication_calculations',[]))
     return digest(payload)
@@ -137,7 +137,10 @@ def publication_fingerprint(state):
 
 def assert_publication(state,html=None):
     gate=state.get('publication_quality',{})
-    fingerprint=publication_fingerprint(state)
+    research=state.get('research',{})
+    # Immutable historical artifacts bind their original validator versions.
+    # New generation and recovery still compare against the current policies.
+    fingerprint=publication_fingerprint(state,verification_policy=gate.get('policy_version'),research_validation=gate.get('research_validation_policy',research.get('validation_policy')),research_retrieval=gate.get('research_retrieval_policy',research.get('retrieval_policy')))
     if 'outcome' not in gate and gate.get('passed'):
         # Existing approved artifacts keep their historical binding; every new
         # decision binds evidence and validation policy as well.

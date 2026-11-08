@@ -96,6 +96,16 @@ class VerificationDeliveryTests(unittest.TestCase):
         self.assertTrue(any('unknown manuscript reference' in f['reason'] for f in findings))
         review['checks'][0].update(issue_type='integrity',reason='The manuscript contains a fabricated citation.')
         self.assertEqual(decide(state,review,review_blocks(state))[0],'BLOCKED')
+    def test_unbound_or_malformed_verifier_cannot_certify_or_block_an_intact_draft(self):
+        state=deepcopy(self.state);state['research_policy']=2;review=deepcopy(state['publication_review'])
+        for check in review['checks']:check.update(passed=True,evidence_blocks=['UNKNOWN-SOURCE-ID'])
+        outcome,findings,bound=decide(state,review,review_blocks(state))
+        self.assertEqual(outcome,'WARNING');self.assertFalse(bound)
+        self.assertTrue(any(f['code'].startswith('review_protocol') for f in findings))
+        review['checks'].pop()
+        self.assertEqual(decide(state,review,review_blocks(state))[0],'WARNING')
+        review['checks'][0].update(passed=False,issue_type='integrity',reason='Fabricated citation in the manuscript.')
+        self.assertEqual(decide(state,review,review_blocks(state))[0],'BLOCKED')
     def test_fingerprint_invalidates_manuscript_evidence_and_criteria_changes(self):
         state=saved_state(self.config);original=publication_fingerprint(state)
         for change in ('document','source','criteria','chart'):

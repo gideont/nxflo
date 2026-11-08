@@ -9,7 +9,7 @@ from .generation_errors import GenerationError
 from .research_store import ResearchPaused
 from .research_client import ResearchClient,POLICY
 
-VALIDATION_POLICY=5
+VALIDATION_POLICY=6
 RETRIEVAL_POLICY=2
 
 
@@ -165,8 +165,13 @@ class Verifier:
                     'This is one bounded reference-following step, not another search or recursive crawl. Return JSON {"urls":["exact candidate URL"]}. '
                     '\nClaims: '+json.dumps(claims,ensure_ascii=False)+'\nCandidate links: '+json.dumps(candidates,ensure_ascii=False))
                 plan=self.client.ai('source-plan',prompt,limit=1500);selected=plan.get('urls')
-                if not isinstance(selected,list) or len(selected)>5 or any(not isinstance(url,str) or url not in candidates for url in selected):raise ResearchPaused('invalid_response','A saved source plan referenced unknown primary URLs; no invented citation was accepted.')
-                for source in self.download(state,list(dict.fromkeys(selected))):
+                if not isinstance(selected,list):raise ResearchPaused('invalid_response','A saved source plan was malformed; no invented citation was accepted.')
+                allowed=list(dict.fromkeys(url for url in selected if isinstance(url,str) and url in candidates))[:5]
+                if len(allowed)!=len(selected):
+                    note={'claim_ids':[c['id'] for c in claims],'reason':'Ignored source-plan entries outside the retrieved official-link allowlist or the five-URL bound.'}
+                    notes=state.setdefault('research',{}).setdefault('retrieval_notes',[])
+                    if note not in notes:notes.append(note)
+                for source in self.download(state,allowed):
                     if not any(s['url']==source['url'] for s in sources):sources.append(source)
         return sources
     def download(self,state,urls):

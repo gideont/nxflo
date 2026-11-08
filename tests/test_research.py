@@ -99,6 +99,26 @@ class ResearchTests(unittest.TestCase):
         data=self.owner.get(BASE+'/jobs/'+job['id']+'/verification').json;self.assertEqual(data['counts']['corrected'],1);self.assertGreater(data['budget']['estimated_spent'],0);self.assertLess(data['budget']['estimated_spent'],5)
         self.assertNotIn(ENV['TAVILY_API_KEY'],json.dumps(data));self.assertNotIn(ENV['DATABRICKS_AI_KEY'],json.dumps(data))
         with db.connect(self.path) as c:self.assertFalse(c.execute("SELECT 1 FROM generator_calls WHERE job_id=? AND stage IN ('draft:0','outline:0')",(job['id'],)).fetchone())
+    def test_published_download_binding_survives_later_policy_updates_without_certifying_new_work(self):
+        from portal_api.generation_quality import assert_publication,publication_fingerprint
+        job=self.start();row=self.run_job(job['id']);state=json.loads(row['state'])
+        html=(self.path.parent/'generated'/job['id']/'document.html').read_text();original=publication_fingerprint(state)
+        with patch('portal_api.research_workflow.VALIDATION_POLICY',999),patch('portal_api.research_workflow.RETRIEVAL_POLICY',999),patch('portal_api.generation_verification.POLICY_VERSION',999):
+            self.assertNotEqual(original,publication_fingerprint(state))
+            assert_publication(state,html)
+            altered=deepcopy(state);altered['sources'][0]['text']+=' altered'
+            with self.assertRaises(GenerationError):assert_publication(altered,html)
+    def test_malformed_publication_verifier_delivers_warning_without_unchanged_retry_billing(self):
+        self.inconclusive=True;ordinary=self.provider
+        def provider(models,method,path,body=None):
+            if 'Independently assess this manuscript' in body['messages'][-1]['content']:
+                self.ai_calls.append(body)
+                return {'choices':[{'message':{'content':json.dumps({'checks':None})},'finish_reason':'stop'}],'usage':{'prompt_tokens':300,'completion_tokens':200}}
+            return ordinary(models,method,path,body)
+        self.provider=provider;job=self.start();row=self.run_job(job['id']);self.assertEqual(row['status'],'needs_review',row['error'])
+        state=json.loads(row['state']);self.assertEqual(state['publication_quality']['outcome'],'WARNING');self.assertTrue(state['publication_review_deferred'])
+        response=self.owner.get(BASE+'/jobs/'+job['id']+'/download/pdf');self.assertEqual(response.status_code,200);response.close()
+        before=(len(self.ai_calls),len(self.retrieval_calls));self.run_job(job['id']);self.assertEqual(before,(len(self.ai_calls),len(self.retrieval_calls)))
     def test_missing_evidence_produces_downloadable_warning_and_stops_after_two_searches(self):
         self.inconclusive=True;self.anchor_warnings=True;job=self.start();row=self.run_job(job['id']);self.assertEqual(row['status'],'needs_review',row['error'])
         state=json.loads(row['state']);self.assertEqual(state['publication_quality']['outcome'],'WARNING');self.assertEqual(state['document'],self.source_state['document'])
@@ -142,7 +162,9 @@ class ResearchTests(unittest.TestCase):
             self.assertEqual(sum(u.endswith('/extract') for u,b in calls),2)
             self.assertEqual(len(self.ai_calls),1)
             with patch.object(verifier.client,'ai',return_value={'urls':['https://unseen.gov/invented']}):
-                with self.assertRaises(ResearchPaused):verifier.sources(state,base,0,claims)
+                accepted=verifier.sources(state,base,0,claims)
+                self.assertEqual([s['url'] for s in accepted],['https://guide.example/overview'])
+                self.assertTrue(state['research']['retrieval_notes'])
             self.assertEqual(len(calls),4)
         engine.db.close()
     def test_legacy_search_with_provider_normalized_query_reuses_saved_operation_id(self):

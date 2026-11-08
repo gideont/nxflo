@@ -343,14 +343,22 @@ class IntentPipeline:
                         s={**s,'publication_review_deferred':True}
                 else:reviews=self.models.many('polish',prompts,'publication-quality-assets-v2')
             finally:self.config.pop('_publication_block_ids',None)
-            if any(not isinstance(result,dict) or not isinstance(result.get('checks'),list) for result in reviews):raise GenerationError('Malformed publication review response.')
-            review={'checks':[check for result in reviews for check in result['checks']]}
+            if any(not isinstance(result,dict) or not isinstance(result.get('checks'),list) for result in reviews):
+                if s.get('research_policy')!=2:raise GenerationError('Malformed publication review response.')
+                # Raw paid responses remain in the operation ledger. An unusable
+                # verifier response is unavailable verification, not a finding
+                # that the complete manuscript itself is unusable.
+                review={'checks':[]};s={**s,'publication_review_deferred':True}
+            else:review={'checks':[check for result in reviews for check in result['checks']]}
         # Checkpoint the raw decision before classification or corrective labeling.
         s={**s,'publication_review':review,'publication_review_fingerprint':fingerprint}
         self.e.checkpoint(s)
         from .generation_verification import decide,POLICY_VERSION
         outcome,findings,bound_checks=decide(s,review,blocks)
         gate={'passed':outcome=='PASS','outcome':outcome,'policy_version':POLICY_VERSION,'fingerprint':fingerprint,'checks':bound_checks,'findings':findings}
+        if s.get('research_policy')==2:
+            from .research_workflow import VALIDATION_POLICY,RETRIEVAL_POLICY
+            gate.update(research_validation_policy=VALIDATION_POLICY,research_retrieval_policy=RETRIEVAL_POLICY)
         if outcome=='BLOCKED':
             failures=[f['code']+': '+f['reason'] for f in findings if f['kind']=='integrity']
             self.e.checkpoint({**s,'quality_errors':failures,'publication_quality':gate})

@@ -47,13 +47,22 @@ def verification_findings(state):
 def review_findings(review,state,blocks):
     """Unknown/ambiguous failures fail closed; only incomplete accuracy is advisory."""
     from .generation_publication import validate_bound_review
-    _,bound=validate_bound_review(review,state,blocks)
+    try:_,bound=validate_bound_review(review,state,blocks)
+    except GenerationError:
+        if state.get('research_policy')!=2:raise
+        checks=review.get('checks',[]) if isinstance(review,dict) else []
+        critical=[check for check in checks if isinstance(check,dict) and check.get('passed') is False and (check.get('issue_type')=='integrity' or RESEARCH_INTEGRITY.search(str(check.get('reason',''))))] if isinstance(checks,list) else []
+        if critical:return ([{'code':str(c.get('criterion','review_integrity')),'kind':'integrity','reason':str(c.get('reason','Critical integrity finding.')),'blocks':[]} for c in critical],[])
+        return ([{'code':'review_protocol','kind':'verification','reason':'Independent publication review was malformed or incomplete. It cannot certify publication; deterministic manuscript integrity checks still apply.','blocks':[]}],[])
     findings=[]
     for check in review['checks']:
         ids=check.get('evidence_blocks',[])
         valid=isinstance(ids,list) and bool(ids) and all(isinstance(b,str) and b in blocks for b in ids)
         if check['passed'] and valid:continue
         reason=check['reason'];kind='integrity'
+        if check['passed'] and not valid and state.get('research_policy')==2:
+            findings.append({'code':'review_protocol:'+check['criterion'],'kind':'verification','reason':'Independent publication review passed '+check['criterion']+' without valid manuscript references. This check cannot certify publication.','blocks':[]})
+            continue
         if not check['passed']:
             declared=check.get('issue_type')
             # Old completed reviews used no severity field. Migrate only explicit
@@ -74,7 +83,7 @@ def review_findings(review,state,blocks):
 
 def decide(state,review,blocks):
     findings,bound=review_findings(review,state,blocks)
-    verified=next((c for c in review['checks'] if c['criterion']=='accuracy'),{}).get('passed') is True
+    verified=any(c['criterion']=='accuracy' and c.get('passed') is True for c in bound)
     local=verification_findings(state)
     research=state.get('research',{})
     verified_blocks=set()
