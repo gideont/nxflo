@@ -242,7 +242,7 @@ def check(widths=(1440,375,320,430)):
                     assert 'saved progress' in page.locator('#generator-recovery-status').inner_text()
                     assert not page.evaluate('document.documentElement.scrollWidth>innerWidth'),'Resume controls overflow'
                     if width in (1440,375):page.locator('#generator-workflow').screenshot(path='/tmp/nxflo-generator-resume-'+str(width)+'.png')
-                    page.reload();page.locator('#generator-jobs').get_by_role('button',name='Resume generation',exact=True).click()
+                    page.reload();pending=page.locator('.generator-library-document').filter(has=page.get_by_role('button',name='Resume',exact=True,include_hidden=True));pending.locator('summary').click();pending.get_by_role('button',name='Resume',exact=True).click()
                     page.locator('#generator-cancel').wait_for(state='visible')
                     assert connection.execute('SELECT remote_id FROM generator_calls WHERE job_id=?',(job,)).fetchone()[0]=='batch-fixture'
                     assert connection.execute('SELECT count(*) FROM generator_jobs').fetchone()[0]==job_count
@@ -290,7 +290,11 @@ def check(widths=(1440,375,320,430)):
                     assert page.locator('#generator-chef').get_attribute('data-phase')=='done'
                     billing={'generation_id':'gen-test-byok','credit_cost':0,'provider_cost':.701728375,'is_byok':True,'web_search_engine':'native'}
                     connection=db.connect(Path(temp)/'test.sqlite3');connection.execute("INSERT INTO generator_calls(job_id,call_key,status,stage,cost,cost_known,billing) VALUES(?,?,?,?,?,?,?)",(job,'fixture-web','complete','web-research:0',.701728375,1,json.dumps(billing)));connection.close()
-                    page.locator('#generator-refresh').click();page.locator('#generator-jobs a[href$="/jobs/'+job+'/download/pdf"]').locator('xpath=ancestor::article').get_by_role('button',name='View progress',exact=True).click()
+                    page.locator('#generator-refresh').click();saved=page.locator('#generator-jobs a[href$="/jobs/'+job+'/download/pdf"]').locator('xpath=ancestor::section[contains(@class,"generator-library-version")]')
+                    page.wait_for_timeout(300)
+                    history=saved.locator('xpath=ancestor::article').locator('details')
+                    if not history.evaluate('el=>el.open'):history.locator('summary').click()
+                    saved.get_by_role('button',name='View progress',exact=True).click()
                     page.wait_for_function("document.querySelector('#generator-cost-actual').textContent.includes('0.7017')")
                     assert 'predate this limit' in page.locator('#generator-web-spend').inner_text()
                     page.locator('#generator-billing-details').evaluate('(el)=>el.open=true')
@@ -326,7 +330,9 @@ def check(widths=(1440,375,320,430)):
                     page.locator('#generator-result').wait_for(state='visible')
                     assert page.locator('[name=version]').input_value()=='1.1'
                     assert not page.evaluate('document.documentElement.scrollWidth>innerWidth'),'Revision form overflow'
-                    original_row=page.locator('#generator-jobs a[href$="/jobs/'+job+'/download/pdf"]').locator('xpath=ancestor::article')
+                    original_row=page.locator('#generator-jobs a[href$="/jobs/'+job+'/download/pdf"]').locator('xpath=ancestor::section[contains(@class,"generator-library-version")]')
+                    original_history=original_row.locator('xpath=ancestor::article').locator('details')
+                    if not original_history.evaluate('el=>el.open'):original_history.locator('summary').click()
                     original_row.get_by_role('button',name='Revise document',exact=True).click()
                     page.wait_for_function("id=>document.querySelector('#generator-download-pdf').getAttribute('href').includes(id)",arg=job)
                     page.locator('#generator-manage-teams').evaluate('(el)=>el.open=true')

@@ -9,7 +9,7 @@
   const numeric=['pages','review_passes','cost_pages'];
   const defaultModels={summary_model:'openai/gpt-6-luna',draft_model:'openai/gpt-6-luna',polish_model:'openai/gpt-6-luna'};
   const aiFields=['company','title'];
-  let focusedJob=null;
+  let focusedJob=null,libraryDocuments=[],expandedDocumentId=null;
   let pricing=null,observedSources=null,matrixSignature='';
   let timedJob=null,timingReceived=0;
   let providerSettings={openrouter:{configured:false},databricks:{configured:false,model:''}};
@@ -241,30 +241,74 @@
     if(!common.value)common.selectedIndex=0;
     renderTeams();fileList();ready();
   }
-  function renderJobs(jobs) {
-    const content=jobs.map(job=>{
-      const row=document.createElement('article');row.className='generator-job';
-      const copy=document.createElement('div'),title=document.createElement('strong'),meta=document.createElement('small');
-      title.textContent=job.title || 'Untitled document';meta.textContent='v'+job.version+' · '+job.status+' · '+new Date(job.created_at).toLocaleString();copy.append(title,meta);
-      if(job.error) {const error=document.createElement('small');error.textContent=job.error;copy.append(error);}
-      const actions=document.createElement('div');actions.className='generator-actions';
-      if(['ready','needs_review'].includes(job.status)){for(const kind of ['pdf','html']){const link=document.createElement('a');link.className='admin-button';link.textContent='Download '+kind.toUpperCase();link.href=endpoint+'/jobs/'+job.id+'/download/'+kind;actions.append(link);}}
-      if(['queued','running','awaiting_html_review','failed','cancelled','ready','needs_review'].includes(job.status))actions.append(button('View progress',()=>watch(job.id)));
-      if(job.status==='awaiting_html_review'){const preview=document.createElement('a');preview.className='admin-button';preview.textContent='Preview HTML';preview.href=endpoint+'/jobs/'+job.id+'/download/html?view=1';preview.target='_blank';preview.rel='noopener';actions.append(preview);}
-      if(job.can_resume)actions.append(button('Resume generation',()=>resume(job.id).catch(showError)));
-      actions.append(button(['ready','needs_review'].includes(job.status)?'Revise document':'Use configuration',()=>loadVersion(job.id).catch(showError)));
-      row.append(copy,actions);return row;
-    });
-    if(!content.length) { const p=document.createElement('p');p.textContent='No generated documents yet. Start your first document above.';content.push(p); }
-    $('generator-jobs').replaceChildren(...content);
+  function documentLink(label,id,kind,view=false) {
+    const link=document.createElement('a');link.className='admin-button';link.textContent=label;
+    link.href=endpoint+'/jobs/'+id+'/download/'+kind+(view?'?view=1':'');
+    if(view){link.target='_blank';link.rel='noopener';}return link;
   }
-  async function loadVersion(id) {
+  function openProgress(id) { return watch(id).then(()=>$('generator-workflow').scrollIntoView({behavior:'smooth',block:'start'})); }
+  function libraryActions(version) {
+    const actions=document.createElement('div');actions.className='generator-actions';
+    if(version.pdf_job_id)actions.append(documentLink('Download PDF',version.pdf_job_id,'pdf'));
+    if(version.html_job_id)actions.append(documentLink('Download HTML',version.html_job_id,'html'));
+    if(version.status==='awaiting_html_review'){
+      actions.append(documentLink('Preview HTML',version.job_id,'html',true));
+      const proceed=button('Continue to PDF',()=>approveHtml(version.job_id,proceed));actions.append(proceed);
+    }
+    if(version.can_resume)actions.append(button('Resume',()=>resume(version.job_id).catch(showError)));
+    actions.append(button('View progress',()=>openProgress(version.job_id).catch(showError)));
+    if(version.pdf_job_id)actions.append(button('Revise document',()=>loadVersion(version.pdf_job_id).catch(showError)));
+    actions.append(button('Use configuration',()=>loadVersion(version.job_id,true).catch(showError)));
+    return actions;
+  }
+  function renderLibrary(documents=libraryDocuments) {
+    const existing=$('generator-jobs');
+    if(existing.querySelector('.generator-library-document'))expandedDocumentId=existing.querySelector('.generator-library-versions[open]')?.closest('[data-document]').dataset.document || null;
+    libraryDocuments=documents;
+    const term=$('generator-library-search').value.trim().toLocaleLowerCase();
+    const visible=documents.filter(doc=>(doc.versions.length || ['queued','running'].includes(doc.latest.status) || doc.latest.job_id===watched || $('generator-library-unfinished').checked) && doc.title.toLocaleLowerCase().includes(term));
+    const content=visible.map(doc=>{
+      const card=document.createElement('article');card.className='generator-library-document';card.dataset.document=doc.id;
+      const heading=document.createElement('div');heading.className='generator-library-heading';
+      const copy=document.createElement('div'),title=document.createElement('h4'),titleButton=button(doc.title,()=>{history.open=!history.open;});titleButton.className='generator-document-title';title.append(titleButton);
+      const meta=document.createElement('p');meta.className='generator-library-meta';
+      const latest=document.createElement('span');latest.textContent='Latest v'+doc.latest.version;
+      const status=document.createElement('span');status.className='generator-library-status';status.dataset.status=doc.latest.status;status.textContent=doc.latest.status_label;
+      const updated=document.createElement('time');updated.dateTime=doc.updated_at;updated.textContent='Updated '+new Date(doc.updated_at).toLocaleString();
+      meta.append(latest,status,updated);copy.append(title,meta);
+      if(doc.latest_downloadable){const saved=document.createElement('p');saved.className='generator-help';saved.textContent='Latest downloadable: v'+doc.latest_downloadable.version;copy.append(saved);}
+      const selected=doc.latest.status==='awaiting_html_review'?doc.latest:doc.latest_downloadable;
+      const open=selected?(selected.status==='awaiting_html_review'?documentLink('Open Document',selected.job_id,'html',true):documentLink('Open Document',selected.pdf_job_id,'pdf',true)):button('Open Document',()=>openProgress(doc.latest.job_id).catch(showError));
+      open.classList.add('generator-primary');heading.append(copy,open);
+      const history=document.createElement('details');history.className='generator-library-versions';history.open=expandedDocumentId===doc.id;
+      const summary=document.createElement('summary');summary.textContent='Version history';history.append(summary);
+      titleButton.setAttribute('aria-expanded',String(history.open));
+      history.addEventListener('toggle',()=>{
+        if(!history.isConnected)return;
+        titleButton.setAttribute('aria-expanded',String(history.open));
+        if(history.open){expandedDocumentId=doc.id;for(const other of $('generator-jobs').querySelectorAll('details'))if(other!==history)other.open=false;}
+        else if(expandedDocumentId===doc.id)expandedDocumentId=null;
+      });
+      if(doc.current_work){const work=document.createElement('section');work.className='generator-library-current';const label=document.createElement('strong');label.textContent='Current document · v'+doc.current_work.version+' · '+doc.current_work.status_label;work.append(label);
+        if(doc.current_work.notice){const note=document.createElement('p');note.textContent=doc.current_work.notice;work.append(note);}work.append(libraryActions(doc.current_work));history.append(work);}
+      for(const version of doc.versions){const row=document.createElement('section');row.className='generator-library-version';row.dataset.version=version.id;
+        const name=document.createElement('strong');name.textContent='v'+version.version+(version.is_current?' · Current version':'');
+        const detail=document.createElement('p');detail.className='generator-help';detail.textContent=version.status_label+' · '+new Date(version.updated_at).toLocaleString();row.append(name,detail,libraryActions(version));history.append(row);
+      }
+      if(!doc.versions.length){const empty=document.createElement('p');empty.className='generator-help';empty.textContent='No saved versions yet. Your first version will appear here when its document is ready for review.';history.append(empty);}
+      card.append(heading,history);return card;
+    });
+    if(!content.length){const empty=document.createElement('p');empty.textContent=term?'No documents match your search.':'No documents yet. Start your first document above.';content.push(empty);}
+    $('generator-jobs').replaceChildren(...content);$('generator-library-count').textContent=visible.length+' of '+documents.length+' documents';
+  }
+  async function loadVersion(id,configurationOnly=false) {
     if(busy || active) return message('Wait for the current generation to finish.');
     const job=await request('/jobs/'+id);
-    const completed=['ready','needs_review'].includes(job.status),teams=config.teams;
+    const completed=!configurationOnly && ['ready','needs_review'].includes(job.status),teams=config.teams;
     const selected=teams.some(team=>team.id===job.config.prepared_team)?job.config.prepared_team:'';
     populate({...job.config,teams,prepared_team:selected,revision_parent:completed?id:'',feedback:'',change_summary:'',version_override:false});history.replaceState(null,'','admin.html?job='+id);
-    if(completed)form.elements.version.value=Number.isFinite(Number(job.config.version))?(Number(job.config.version)+0.1).toFixed(Math.max(1,(job.config.version.split('.')[1] || '').length)):'1.1';
+    const libraryDocument=libraryDocuments.find(doc=>doc.id===job.document_id);
+    if(completed)form.elements.version.value=libraryDocument?.next_version || (Number.isFinite(Number(job.config.version))?(Number(job.config.version)+0.1).toFixed(Math.max(1,(job.config.version.split('.')[1] || '').length)):'1.1');
     ready();$('generator-version-settings').open=false;
     $('generator-revision-base').textContent=completed?'Revising '+(job.config.title || 'document')+' · version '+job.config.version+'. Download and review the PDF, then enter your feedback below.':'';
     if(completed){clearTimeout(pollTimer);watched=id;workflow(job);}
@@ -281,7 +325,7 @@
       const data=await request();providerSettings=data.providers || {openrouter:{configured:data.configured},databricks:{configured:false,model:''}};configured=data.configured;defaults=data.defaults || defaults;
       if(!loaded) {revision=data.revision;loaded=true;populate(data.config);$('generator-save-state').textContent=revision?'Saved configuration':'New configuration';}
       $('generator-key-status').textContent=(providerSettings.databricks.configured?'Databricks configured. ':'Databricks not configured. ')+(providerSettings.openrouter.configured?'OpenRouter configured. ':'OpenRouter not configured. ')+(data.worker_online?'Generation worker online.':'Generation worker offline.');
-      renderJobs(data.jobs || []);
+      renderLibrary(data.documents || []);
       if(!pricing)await loadPrices();
       if(!refresh)message('Configuration loaded. Changes are saved automatically.');
       const running=(data.jobs || []).find(job=>['queued','running'].includes(job.status)) || (data.jobs || []).find(job=>job.status==='awaiting_html_review');
@@ -428,16 +472,18 @@
     };return poll();
   }
   $('generator-revise-current').addEventListener('click',()=>{if(watched)loadVersion(watched).catch(showError);});
-  $('generator-approve-html').addEventListener('click',async()=>{
-    if(!watched)return;
-    const id=watched,button=$('generator-approve-html');button.disabled=true;
-    try{await request('/jobs/'+id+'/approve-html',json('POST',{}));await watch(id);message('HTML approved. Continuing to PDF export.');}
+  const approvingHtml=new Set();
+  async function approveHtml(id,button) {
+    if(!id || approvingHtml.has(id))return;
+    approvingHtml.add(id);button.disabled=true;
+    try{await request('/jobs/'+id+'/approve-html',json('POST',{}));await watch(id);await load(true);message('HTML approved. Continuing to PDF export.');}
     catch(error){$('generator-html-status').textContent=error.message;showError(error);}
-    finally{button.disabled=false;}
-  });
+    finally{approvingHtml.delete(id);button.disabled=false;}
+  }
+  $('generator-approve-html').addEventListener('click',()=>approveHtml(watched,$('generator-approve-html')));
   async function resume(id) {
     $('generator-resume').disabled=true;
-    try{await request('/jobs/'+id+'/resume',json('POST',{}));watch(id);message('Continuing from saved progress. Existing requests and completed responses are reused.');}
+    try{await request('/jobs/'+id+'/resume',json('POST',{}));await watch(id);await load(true);message('Continuing from saved progress. Existing requests and completed responses are reused.');}
     finally{$('generator-resume').disabled=false;}
   }
   $('generator-resume').addEventListener('click',()=>{if(watched)resume(watched).catch(showError);});
@@ -501,7 +547,7 @@
     try{
       await save();await fillBlankMetadata();
       const result=await request('/jobs',json('POST',{config:values(),parent_id:parentId}));
-      form.elements.version.value=result.version;dirty=true;save().catch(showError);active=result.id;watch(result.id);history.replaceState(null,'','admin.html?job='+result.id);message('Generation queued. You can leave this page and return to follow progress.');
+      form.elements.version.value=result.version;dirty=true;save().catch(showError);active=result.id;await watch(result.id);await load(true);history.replaceState(null,'','admin.html?job='+result.id);message('Generation queued. You can leave this page and return to follow progress.');
     }catch(error){showError(error);}finally{busy=false;ready();}
   });
   $('generator-logo').addEventListener('change',event=>upload(async()=>{const file=event.target.files[0];if(file)config.logo=await image(file);},event.target));
@@ -516,9 +562,11 @@
   $('generator-illustrations').addEventListener('change',event=>upload(async()=>{const files=[...event.target.files];if(files.length+config.illustrations.length>4)throw new Error('Use at most four supporting images.');const results=await Promise.all(files.map(image));config.illustrations.push(...results);},event.target));
   $('generator-refresh-prices').addEventListener('click',()=>loadPrices(true));
   $('generator-refresh').addEventListener('click',()=>load(true));
+  $('generator-library-search').addEventListener('input',()=>renderLibrary());
+  $('generator-library-unfinished').addEventListener('change',()=>renderLibrary());
   window.addEventListener('nxflo-admin-tab',event=>{if(event.detail==='generator-tab')load();});
   window.addEventListener('nxflo-owner-session',event=>{csrf=event.detail.csrf;});
-  window.addEventListener('nxflo-session-ended',()=>{csrf='';loaded=false;config=null;active=null;watched=null;timedJob=null;renderTiming();$('generator-editor').hidden=false;$('generator-logo-preview').querySelector('img').removeAttribute('src');$('generator-logo-preview').hidden=true;$('generator-logo-empty').hidden=false;$('generator-logo-help').hidden=false;logoDrop.classList.remove('has-logo');logoDrop.setAttribute('aria-label','Upload company logo');clearTimeout(pollTimer);clearTimeout(saveTimer);form.reset();$('generator-jobs').replaceChildren();$('generator-review-actions').hidden=true;$('generator-review-jump').hidden=true;$('generator-html-status').hidden=true;});
+  window.addEventListener('nxflo-session-ended',()=>{csrf='';loaded=false;config=null;active=null;watched=null;timedJob=null;renderTiming();$('generator-editor').hidden=false;$('generator-logo-preview').querySelector('img').removeAttribute('src');$('generator-logo-preview').hidden=true;$('generator-logo-empty').hidden=false;$('generator-logo-help').hidden=false;logoDrop.classList.remove('has-logo');logoDrop.setAttribute('aria-label','Upload company logo');clearTimeout(pollTimer);clearTimeout(saveTimer);form.reset();libraryDocuments=[];expandedDocumentId=null;$('generator-library-search').value='';$('generator-library-unfinished').checked=false;$('generator-library-count').textContent='';$('generator-jobs').replaceChildren();$('generator-review-actions').hidden=true;$('generator-review-jump').hidden=true;$('generator-html-status').hidden=true;});
   window.addEventListener('beforeunload',event=>{if(dirty || saving || uploading){event.preventDefault();event.returnValue='';}});
   workflow();
 

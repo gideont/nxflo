@@ -32,11 +32,14 @@ def prepare_revision(connection,parent,config,Error):
         seen.add(current['id']);ancestors.append(current)
         current=connection.execute('SELECT * FROM generator_jobs WHERE id=?',(current['parent_id'],)).fetchone() if current['parent_id'] else None
     root=ancestors[-1]['id']
-    family=connection.execute('''WITH RECURSIVE family(id,config) AS (
-        SELECT id,config FROM generator_jobs WHERE id=? UNION ALL
-        SELECT j.id,j.config FROM generator_jobs j JOIN family f ON j.parent_id=f.id)
-        SELECT config FROM family''',(root,)).fetchall()
-    versions=[json.loads(item['config']).get('version','1.0') for item in family]
+    if 'document_id' in row.keys() and row['document_id']:
+        versions=[item['version'] for item in connection.execute('SELECT version FROM generator_versions WHERE document_id=?',(row['document_id'],))]
+    else:
+        family=connection.execute('''WITH RECURSIVE family(id,config) AS (
+            SELECT id,config FROM generator_jobs WHERE id=? UNION ALL
+            SELECT j.id,j.config FROM generator_jobs j JOIN family f ON j.parent_id=f.id)
+            SELECT config FROM family''',(root,)).fetchall()
+        versions=[json.loads(item['config']).get('version','1.0') for item in family]
     numeric=[v for v in versions if re.fullmatch(r'\d{1,6}(?:\.\d{1,6})?',v)]
     latest=max(numeric,key=Decimal) if numeric else '1.0'
     if config.get('version_override'):

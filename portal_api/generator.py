@@ -130,6 +130,9 @@ def register_generator(app, conn, login_required, Error):
         for name,definition in (('next_run_at','REAL NOT NULL DEFAULT 0'),('message',"TEXT NOT NULL DEFAULT ''"),('wait_state',"TEXT NOT NULL DEFAULT '{}'"),('recovery',"TEXT NOT NULL DEFAULT '{}'"),('work_progress',"TEXT NOT NULL DEFAULT '{}'")):
             if name not in columns: conn().execute('ALTER TABLE generator_jobs ADD COLUMN '+name+' '+definition)
 
+        from .generator_library import migrate
+        migrate(conn())
+
     def job_or_404(job_id):
         row=conn().execute('SELECT * FROM generator_jobs WHERE id=?',(job_id,)).fetchone()
         if row is None: raise Error('Document not found',404)
@@ -144,13 +147,14 @@ def register_generator(app, conn, login_required, Error):
     def settings():
         from .generation_recovery import recovery_info
         from .generation_providers import providers
+        from .generator_library import library
         row=conn().execute('SELECT * FROM generator_settings WHERE id=1').fetchone()
         jobs=conn().execute('SELECT id,status,step,created_at,published_at,error,config,parent_id,next_run_at,recovery FROM generator_jobs ORDER BY created_at DESC LIMIT 50').fetchall()
         saved={**DEFAULTS,**{'summary_service':'default','draft_service':'default','polish_service':'default'},**json.loads(row['config'])} if row else dict(DEFAULTS)
         if not saved['company'] or saved['company']=='Nexusflow':saved['company']='Nexusflow Inc.'
         for role in ('summary','draft','polish'):saved[role+'_model']=saved[role+'_model'].removesuffix(':batch')
         return jsonify(config=saved, revision=row['revision'] if row else 0,
-            defaults=DEFAULTS,providers=providers(), worker_online=worker_online(), configured=bool(os.environ.get('OPENROUTER_API_KEY','').strip()), jobs=[dict(id=j['id'],status=j['status'],step=j['step'],created_at=j['created_at'],published_at=j['published_at'],error=j['error'],title=json.loads(j['config'])['title'],version=json.loads(j['config'])['version'],parent_id=j['parent_id'],can_resume=recovery_info(conn(),j)['can_resume'] if j['status'] in ('failed','cancelled') else False) for j in jobs])
+            documents=library(conn()), defaults=DEFAULTS,providers=providers(), worker_online=worker_online(), configured=bool(os.environ.get('OPENROUTER_API_KEY','').strip()), jobs=[dict(id=j['id'],status=j['status'],step=j['step'],created_at=j['created_at'],published_at=j['published_at'],error=j['error'],title=json.loads(j['config'])['title'],version=json.loads(j['config'])['version'],parent_id=j['parent_id'],can_resume=recovery_info(conn(),j)['can_resume'] if j['status'] in ('failed','cancelled') else False) for j in jobs])
 
     @app.get(BASE+'/pricing')
     @login_required(owner=True)
@@ -233,6 +237,8 @@ def register_generator(app, conn, login_required, Error):
         job_id=uuid.uuid4().hex;created_at=db.now()
         with db.transaction(conn()):
             if conn().execute("SELECT 1 FROM generator_jobs WHERE status IN ('queued','running')").fetchone(): raise Error('A document is already generating. Wait for it to finish.',409)
+            from .generator_library import backfill
+            backfill(conn())
             history=prepare_revision(conn(),parent,config,Error) if parent else []
             if not parent and not config['version_override']:config['version']='1.0'
             if config['version_override'] and not config['version']:raise Error('Enter a version or turn off the version override')
@@ -247,7 +253,9 @@ def register_generator(app, conn, login_required, Error):
                 initial.update(prompt_policy_version=2,original_brief=config['topic'],author_original=original,author_source_hash=digest(original))
             state=json.dumps(initial,ensure_ascii=False)
             conn().execute('INSERT INTO generator_jobs(id,config,status,step,state,created_at,updated_at,parent_id,message) VALUES(?,?,?,?,?,?,?,?,?)',(job_id,json.dumps(config,ensure_ascii=False),'queued','collect',state,created_at,created_at,parent,'Queued for document generation.'))
-        return jsonify(id=job_id,version=config['version']),202
+            from .generator_library import attach_new
+            document_id,version_id=attach_new(conn(),job_id,config,created_at,parent)
+        return jsonify(id=job_id,version=config['version'],document_id=document_id,version_id=version_id),202
 
     @app.get(BASE+'/jobs/<job_id>')
     @login_required(owner=True)
@@ -268,7 +276,7 @@ def register_generator(app, conn, login_required, Error):
         web_budget={'limit':json.loads(row['config']).get('web_budget_usd',0.30),'reported':web_cost,'reserved':sum(item['reserved_cost'] for item in web if not item['cost_known']),'historical':legacy}
         metrics={'source_characters':sum(len(source.get('text','')) for source in sources),'summary_chunks':sum((len(source.get('text',''))+23999)//24000 for source in sources),'web_cost':web_cost,'web_cost_known':bool(web) and all(item['status']=='complete' and item['cost_known'] for item in web)} if sources else None
         chapter_count=len(state.get('document',{}).get('chapters') or state.get('outline',{}).get('chapters') or [])
-        return jsonify(chapter_count=chapter_count or None,pipeline_version=state.get('pipeline_version',1),document_intent=json.loads(row['config']).get('document_intent','research_report'),publication_quality=state.get('publication_quality'),intent_audits=state.get('intent_audits',[]),quality_errors=state.get('quality_errors',[]),step_progress=json.loads(row['work_progress']),recovery=recovery_info(conn(),row),server_time=time.time(),wait_state=waiting,batch_wait=batch,billing=breakdown,web_budget=web_budget,source_metrics=metrics,**{k:row[k] for k in ('id','status','step','error','created_at','published_at','parent_id','message','updated_at')},config={**DEFAULTS,**{'summary_service':'default','draft_service':'default','polish_service':'default'},**json.loads(row['config'])},events=json.loads(row['events']),worker_online=worker_online(),warnings=json.loads(row['state']).get('warnings',[]),cost=conn().execute('SELECT sum(cost) FROM generator_calls WHERE job_id=? AND cost_known=1',(job_id,)).fetchone()[0],unreported_calls=conn().execute("SELECT count(*) FROM generator_calls WHERE job_id=? AND status='complete' AND cost_known=0",(job_id,)).fetchone()[0])
+        return jsonify(chapter_count=chapter_count or None,pipeline_version=state.get('pipeline_version',1),document_intent=json.loads(row['config']).get('document_intent','research_report'),publication_quality=state.get('publication_quality'),intent_audits=state.get('intent_audits',[]),quality_errors=state.get('quality_errors',[]),step_progress=json.loads(row['work_progress']),recovery=recovery_info(conn(),row),server_time=time.time(),wait_state=waiting,batch_wait=batch,billing=breakdown,web_budget=web_budget,source_metrics=metrics,**{k:row[k] for k in ('id','status','step','error','created_at','published_at','parent_id','message','updated_at','document_id','version_id')},config={**DEFAULTS,**{'summary_service':'default','draft_service':'default','polish_service':'default'},**json.loads(row['config'])},events=json.loads(row['events']),worker_online=worker_online(),warnings=json.loads(row['state']).get('warnings',[]),cost=conn().execute('SELECT sum(cost) FROM generator_calls WHERE job_id=? AND cost_known=1',(job_id,)).fetchone()[0],unreported_calls=conn().execute("SELECT count(*) FROM generator_calls WHERE job_id=? AND status='complete' AND cost_known=0",(job_id,)).fetchone()[0])
 
     @app.post(BASE+'/jobs/<job_id>/resume')
     @login_required(owner=True)
@@ -295,6 +303,7 @@ def register_generator(app, conn, login_required, Error):
         with db.transaction(conn()):
             row=job_or_404(job_id)
             if row['status'] != 'awaiting_html_review':raise Error('This document is not waiting for HTML review',409)
+            if conn().execute("SELECT 1 FROM generator_jobs WHERE status IN ('queued','running') AND id!=?",(job_id,)).fetchone():raise Error('Another document is generating. Wait for it to finish before continuing this version.',409)
             path=Path(app.config['DATABASE']).parent/'generated'/row['id']/'document.html'
             if not path.is_file():raise Error('HTML preview file is missing',409)
             if conn().execute("SELECT 1 FROM generator_jobs WHERE status IN ('queued','running') AND id!=?",(job_id,)).fetchone():raise Error('Another document is generating. Wait for it to finish before continuing.',409)
