@@ -66,11 +66,26 @@ def check():
                     for field in ('width','x'):
                         values=[sample[field] for sample in samples]
                         assert max(values)-min(values)<1,(width,field,min(values),max(values))
-                    # An expanded configuration must also leave the workflow width alone.
+                    configuration=page.locator('#generator-configuration').bounding_box()
+                    compact=page.locator('#generator-workflow').bounding_box()
+                    assert not page.locator('#generator-configuration').evaluate('el=>el.open')
+                    if width>900:
+                        assert abs(configuration['y']-compact['y'])<1
+                        assert configuration['x']+configuration['width']<=compact['x']
+                        assert compact['width']>configuration['width']*2
+                    else:assert compact['y']>=configuration['y']+configuration['height']
+                    # Explicitly returning to configuration expands the form; polling must preserve that choice.
                     before=page.locator('#generator-workflow').bounding_box()
                     page.locator('#generator-configuration>summary').click()
                     after=page.locator('#generator-workflow').bounding_box()
-                    assert abs(before['width']-after['width'])<1
+                    if width>900:
+                        expanded=page.locator('#generator-configuration').bounding_box()
+                        assert expanded['width']>configuration['width']
+                        assert abs(expanded['y']-after['y'])<1
+                        assert expanded['x']+expanded['width']<=after['x']
+                    else:assert abs(before['width']-after['width'])<1
+                    page.wait_for_timeout(2500)
+                    assert page.locator('#generator-configuration').evaluate('el=>el.open')
                     assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth'),width
                     # Even the initial two-column layout has no status-based width animation.
                     page.evaluate("document.querySelector('.generator-layout').classList.remove('is-focused')")
