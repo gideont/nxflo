@@ -9,7 +9,7 @@ from .generation_errors import GenerationError
 from .research_store import ResearchPaused
 from .research_client import ResearchClient,POLICY
 
-VALIDATION_POLICY=4
+VALIDATION_POLICY=5
 RETRIEVAL_POLICY=2
 
 
@@ -48,7 +48,10 @@ def excerpts(text,claims):
 
 
 def packet(sources,claims):
-    return [{'url':s['url'],'source_id':s['id'],'retrieved_at':s.get('retrieved_at'),'text':excerpts(s['text'],claims)} for s in sources]
+    # Keep the existing request ceiling. Primary-reference following can add
+    # pages, so allocate a bounded evidence window instead of overflowing it.
+    allowance=min(18000,60000//max(1,len(sources)))
+    return [{'url':s['url'],'source_id':s['id'],'retrieved_at':s.get('retrieved_at'),'text':excerpts(s['text'],claims).encode()[:allowance].decode(errors='ignore')} for s in sources]
 
 
 def validate_assessments(value,claims,sources):

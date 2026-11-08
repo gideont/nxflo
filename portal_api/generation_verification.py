@@ -54,16 +54,20 @@ def review_findings(review,state,blocks):
         valid=isinstance(ids,list) and bool(ids) and all(isinstance(b,str) and b in blocks for b in ids)
         if check['passed'] and valid:continue
         reason=check['reason'];kind='integrity'
-        if not check['passed'] and valid:
+        if not check['passed']:
             declared=check.get('issue_type')
             # Old completed reviews used no severity field. Migrate only explicit
             # missing-evidence rejections; an ambiguous accuracy failure stays blocked.
             legacy=check['criterion']=='accuracy' and declared is None and MISSING.search(reason)
             cleaned=re.sub(r'not (?:for )?(?:a )?(?:demonstrated |actual )?contradiction','',reason,flags=re.I)
             advisory=(check['criterion']=='accuracy' and declared=='unverified_claim') or legacy
-            if state.get('research_policy')==2 and declared=='unverified_claim' and MISSING.search(reason):advisory=True
+            if state.get('research_policy')==2 and declared=='unverified_claim':advisory=True
             critical=RESEARCH_INTEGRITY if state.get('research_policy')==2 else CRITICAL
-            if advisory and not critical.search(cleaned):kind='verification'
+            if advisory and not critical.search(cleaned) and (valid or state.get('research_policy')==2):kind='verification'
+        if not valid and kind=='verification':
+            ids=[key for key in ids if isinstance(key,str) and key in blocks] if isinstance(ids,list) else []
+            reason+=' The reviewer included an unknown manuscript reference; this finding cannot certify publication.'
+            valid=True
         findings.append({'code':check['criterion'],'kind':kind,'reason':reason if valid else check['criterion']+': review references unknown or missing publication evidence.','blocks':ids if valid else []})
     return findings,bound
 

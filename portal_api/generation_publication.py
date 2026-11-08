@@ -144,6 +144,9 @@ def render_calculation(calc):
 
 def review_blocks(state):
     blocks={}
+    if state.get('research_policy')==2:
+        blocks['D0']={'chapter':None,'text':state.get('verified_title') or state.get('config',{}).get('title') or state['outline'].get('title','')}
+        for i,ch in enumerate(state['document']['chapters']):blocks[f'H{i}']={'chapter':i,'text':ch['title']}
     for i,ch in enumerate(state['document']['chapters']):
         for j,p in enumerate(ch['paragraphs']):blocks[f'P{i}.{j}']={'chapter':i,'text':p}
         if ch.get('takeaway'):blocks[f'K{i}']={'chapter':i,'text':ch['takeaway']}

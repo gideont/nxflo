@@ -88,6 +88,14 @@ class VerificationDeliveryTests(unittest.TestCase):
         self.assertEqual(decide(state,review,review_blocks(state))[0],'WARNING')
         accuracy['reason']='The manuscript contains internally contradictory ROI formulas.'
         self.assertEqual(decide(state,review,review_blocks(state))[0],'BLOCKED')
+    def test_qualification_findings_with_mixed_source_and_manuscript_ids_deliver_warning(self):
+        state=deepcopy(self.state);state['research_policy']=2;review=deepcopy(state['publication_review'])
+        for check in review['checks']:
+            check.update(passed=False,issue_type='unverified_claim',evidence_blocks=['P1.0','V175203840362966'],reason='The timeline and cap require corroboration or qualification before publication.')
+        outcome,findings,_=decide(state,review,review_blocks(state));self.assertEqual(outcome,'WARNING')
+        self.assertTrue(any('unknown manuscript reference' in f['reason'] for f in findings))
+        review['checks'][0].update(issue_type='integrity',reason='The manuscript contains a fabricated citation.')
+        self.assertEqual(decide(state,review,review_blocks(state))[0],'BLOCKED')
     def test_fingerprint_invalidates_manuscript_evidence_and_criteria_changes(self):
         state=saved_state(self.config);original=publication_fingerprint(state)
         for change in ('document','source','criteria','chart'):

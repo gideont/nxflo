@@ -15,7 +15,7 @@ from portal_api.generation_errors import GenerationError
 from portal_api.generation_intent import digest
 from portal_api.research_client import ResearchClient,model_rates
 from portal_api.research_store import Store,ResearchPaused,summary
-from portal_api.research_workflow import validate_assessments,blocks,Verifier
+from portal_api.research_workflow import validate_assessments,blocks,Verifier,packet
 from test_portal_auth import make_test_app,sign_in,ORIGIN
 from regulatory_fixtures import BRIEF,saved_state,CLAIMS
 
@@ -249,6 +249,13 @@ class ResearchTests(unittest.TestCase):
         with patch('portal_api.research_client.model_rates',return_value=RATES):
             with self.assertRaises(GenerationError):client.tavily('research',{'input':'Do deep research'})
         engine.db.close()
+    def test_reference_following_evidence_windows_fit_request_bound_without_inventing_text(self):
+        text=('Current regulatory scope and exact controlling rule. '*5000)
+        sources=[{'id':'V'+str(i),'url':f'https://example.gov/rules/{i}','text':text} for i in range(20)]
+        result=packet(sources,[{'text':'Current regulatory scope and exact controlling rule.'}])
+        self.assertEqual(len(result),20);self.assertLess(len(json.dumps(result).encode()),70000)
+        for item in result:
+            for excerpt in item['text'].split('\n…\n'):self.assertIn(excerpt,text)
 
     def test_insufficient_allowance_stops_before_paid_requests_and_topup_reuses_saved_manuscript(self):
         with db.connect(self.path) as c:c.execute('UPDATE generator_research_budgets SET limit_usd=.000001 WHERE document_id=?',(self.doc,))
