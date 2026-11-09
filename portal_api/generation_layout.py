@@ -2,6 +2,7 @@
 from pathlib import Path
 
 _FOLIO = Path(__file__).with_name('vendor') / 'folio'
+CONTENTS_ROW_CSS = '.contents li{border-bottom:0}'
 REPORT_CSS = '\n'.join((_FOLIO / name).read_text(encoding='utf-8') for name in ('base.css', 'report.css')) + r'''
 /* Nexusflow brand adapter; upstream components remain in vendor/folio. */
 :root{
@@ -24,7 +25,7 @@ img,svg{max-width:100%;height:auto}figure img{width:auto;max-height:145mm;margin
 .prepared-by,.cover-website{font:9pt/1.6 var(--font-ui);margin:0 0 3mm}
 .cover p{max-width:none}.cover a,.cover strong{color:inherit}.cover-details p:last-child{margin-bottom:0}
 .contents{padding-top:3mm;break-after:page}.contents h2{font:600 18pt var(--font-ui);bookmark-level:none;border-bottom:2px solid var(--brand);padding-bottom:4mm}
-.contents ol{max-width:none;list-style:none;padding:0}.contents li{font:10pt/1.6 var(--font-ui);border-bottom:1px solid var(--rule);padding:3mm 0}.contents a{display:block}
+.contents ol{max-width:none;list-style:none;padding:0}.contents li{font:10pt/1.6 var(--font-ui);padding:3mm 0}.contents a{display:block}
 .report-chapter,.appendix,.document-control{break-before:page;padding-top:3mm}
 h2{font:600 16pt/1.3 var(--font-ui);break-after:avoid;margin:0 0 6mm;color:var(--ink)}
 .report-chapter .eyebrow{color:var(--brand)}
@@ -94,3 +95,4 @@ REPORT_CSS += r"""
  .report-data-table td::before{content:attr(data-label);font-weight:600;color:var(--brand);font-size:12px}
 }
 """
+REPORT_CSS += CONTENTS_ROW_CSS

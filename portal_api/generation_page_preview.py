@@ -1,6 +1,7 @@
 """Private browser pagination; immutable approved HTML remains the export source."""
 from bs4 import BeautifulSoup
 import tinycss2
+from .generation_layout import CONTENTS_ROW_CSS
 
 
 def print_css(css):
@@ -23,7 +24,7 @@ def paginated_preview(html):
     if chapter:
         for running in soup.select('.running-header,.running-footer'):chapter.insert(0,running.extract())
     for style in soup.find_all('style'):style.string=print_css(style.string or '')
-    style=soup.new_tag('style');style.string='html,body{margin:0;padding:0;background:#e8e9ed}main{max-width:none;margin:0;padding:0;background:white}footer{display:none}'
+    style=soup.new_tag('style');style.string='html,body{margin:0;padding:0;background:#e8e9ed}main{max-width:none;margin:0;padding:0;background:white}footer{display:none}'+CONTENTS_ROW_CSS
     soup.head.append(style)
     for src in ('/tools/document-preview.js','/tools/vendor/paged-0.4.3.min.js'):
         script=soup.new_tag('script',src=src);script['defer']='';soup.head.append(script)

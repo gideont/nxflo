@@ -27,6 +27,8 @@ with sync_playwright() as p:
  page.screenshot(path='/tmp/nxflo-pagination-debug.png')
  assert 'Contents' not in page.locator('.pagedjs_page').nth(0).inner_text()
  assert 'Contents' in page.locator('.pagedjs_page').nth(1).inner_text(),page.locator('.pagedjs_page').nth(1).inner_text()[:100]
+ assert page.locator('.contents li').evaluate_all("rows => rows.every(row => getComputedStyle(row).borderBottomWidth === '0px')")
+ assert page.locator('.contents h2').evaluate("heading => getComputedStyle(heading).borderBottomStyle === 'solid'")
  for ch in s['document']['chapters']:assert ' '.join(ch['title'].split()) in ' '.join(page.locator('.pagedjs_pages').inner_text().split()),ch['title']
  for width in (1440,375,320,430):
   page.set_viewport_size({'width':width,'height':1000});page.wait_for_timeout(400)
